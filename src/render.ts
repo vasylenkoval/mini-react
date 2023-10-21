@@ -1,7 +1,6 @@
 import type { JSXElement } from './jsx.js';
 
 export function render(element: JSXElement, container: HTMLElement) {
-    console.log('rendering', element?.type);
     const dom = document.createElement(element.type);
 
     for (const key in element.props) {
