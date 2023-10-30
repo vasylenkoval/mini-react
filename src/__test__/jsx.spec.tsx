@@ -3,7 +3,7 @@ import { jsx } from '../jsx';
 
 describe('jsx', () => {
     it('should create basic elements', () => {
-        expect(jsx('div', { id: 'foo' }, jsx('a', null, 'bar'), jsx('b'))).toEqual({
+        expect(jsx('div', { id: 'foo' }, jsx('a', null, 'bar'), jsx('b', null))).toEqual({
             type: 'div',
             props: {
                 id: 'foo',
