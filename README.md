@@ -1,3 +1,3 @@
 # mini-react
+A work-in-progress re-implementation of React originally based on Rodrigo Pombo's [Build your own React](https://pomb.us/build-your-own-react/) article. The goal of this project is to gain a deeper understanding of how React works by implementing a subset of public APIs related to functional components and hooks.
 
-The goal of this project is to gain a deeper understanding of how React works under the hood by building a simplified version of the API. It will aim to re-implement the core functionality of functional components, hooks, and the virtual DOM.
