@@ -9,10 +9,15 @@ export function createNode(type: string): Node {
     return type === TEXT_ELEMENT ? document.createTextNode('') : document.createElement(type);
 }
 
-const isEvent = (propName: string) => propName.startsWith('on');
-const isProp = (propName: string) => propName !== 'children' && !isEvent(propName);
+const STYLE_PROP = 'style';
+const CHILDREN_PROP = 'children';
+const FUNCTION_PREFIX = 'on';
+
+const isEvent = (propName: string) => propName.startsWith(FUNCTION_PREFIX);
+const isProp = (propName: string) => propName !== CHILDREN_PROP && !isEvent(propName);
 const getEventName = (propName: string) => propName.toLowerCase().substring(2);
 
+type EventListener = EventListenerOrEventListenerObject;
 /**
  * Adds given properties to a DOM node. Reconciles new props with previous props if provided.
  * @param dom - DOM node to add props to.
@@ -21,7 +26,7 @@ const getEventName = (propName: string) => propName.toLowerCase().substring(2);
  */
 export function addProps(dom: Node, props: Props, prevProps?: Props) {
     if (prevProps) {
-        // Reset removed props.
+        // Resets props that are completely removed.
         for (let propToReset in prevProps) {
             if (propToReset in props) {
                 continue;
@@ -32,13 +37,13 @@ export function addProps(dom: Node, props: Props, prevProps?: Props) {
             } else if (isEvent(propToReset)) {
                 dom.removeEventListener(
                     getEventName(propToReset),
-                    prevProps[propToReset] as EventListenerOrEventListenerObject
+                    prevProps[propToReset] as EventListener
                 );
             }
         }
     }
 
-    // Add new props.
+    // Add new props, compares to previous and updates if not equal
     for (let propToAdd in props) {
         if (prevProps && props[propToAdd] === prevProps[propToAdd]) {
             continue;
@@ -47,10 +52,12 @@ export function addProps(dom: Node, props: Props, prevProps?: Props) {
             // @ts-expect-error
             dom[propToAdd] = props[propToAdd];
         } else if (isEvent(propToAdd)) {
-            dom.addEventListener(
-                getEventName(propToAdd),
-                props[propToAdd] as EventListenerOrEventListenerObject
-            );
+            const eventName = getEventName(propToAdd);
+            if (prevProps && prevProps[propToAdd]) {
+                // Remove previous listener.
+                dom.removeEventListener(eventName, prevProps[propToAdd] as EventListener);
+            }
+            dom.addEventListener(eventName, props[propToAdd] as EventListener);
         }
     }
 }

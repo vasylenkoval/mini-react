@@ -1,6 +1,7 @@
 /** @jsx jsx */
 import { createRoot } from '../fiber.js';
 import { jsx, Element } from '../jsx.js';
+import { useState } from '../hooks.js';
 
 const root = document.getElementById('root');
 const style = document.createElement('style');
@@ -18,7 +19,7 @@ style.textContent = `
     border: 1px solid rgba(82, 82, 89, .32);
     transition: border 0.1s;
     border-radius: 4px;
-    padding: 0 20px;
+    padding: 0 20px 20px 20px;
     margin-bottom: 20px;
   }
 
@@ -33,69 +34,65 @@ style.textContent = `
     padding: 10px;
     margin-bottom: 10px;
   }
+
+  .card__body {
+    padding: 0 10px;
+  }
 `;
 document.head.appendChild(style);
 
-const Card = ({
-    children,
-    title,
-    onClick,
-}: {
-    children?: Element | Element[];
-    title: string;
-    onClick?: () => void;
-}) => {
+const Card = ({ children, title }: { children?: Element | Element[]; title: string }) => {
+    const [isOpen, setIsOpen] = useState(true);
     return (
-        <div className="card" onClick={onClick}>
-            <div className="card__title">{title}</div>
-            {children}
+        <div className="card">
+            <div className="card__title" onClick={() => setIsOpen((prev) => !prev)}>
+                {title}
+            </div>
+            <div className="card__body">{isOpen && children}</div>
         </div>
     );
 };
 
-const cards = [
-    {
-        title: 'Card 1',
-        content: (
-            <p>
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque eget eros in
-                ante pharetra lobortis. Duis eu massa et quam porta laoreet a non quam. Vestibulum
-                id nunc sit amet diam aliquet consectetur et in dui. Sed lorem sapien, venenatis et
-                arcu in, vulputate sollicitudin metus. Donec dictum.
-            </p>
-        ),
-    },
-    {
-        title: 'Card 2',
-        content: (
-            <div>
-                <p>
-                    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque eget eros
-                    in ante pharetra lobortis. Duis eu massa et quam porta laoreet a non quam.
-                    Vestibulum id nunc sit amet diam aliquet consectetur et in dui. Sed lorem
-                    sapien, venenatis et arcu in, vulputate sollicitudin metus. Donec dictum.
-                </p>
-                <p>
-                    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque eget eros
-                    in ante pharetra lobortis. Duis eu massa et quam porta laoreet a non quam.
-                    Vestibulum id nunc sit amet diam aliquet consectetur et in dui. Sed lorem
-                    sapien, venenatis et arcu in, vulputate sollicitudin metus. Donec dictum.
-                </p>
-            </div>
-        ),
-    },
-];
-
 const App = () => {
+    const [name, setName] = useState('');
+    const [age, setAge] = useState(0);
+    const [count, setCount] = useState(0);
+
     return (
         <div className="app">
             <h1 className="title">Mini-React ⚛️</h1>
-            <p>Example of component rendering</p>
-            {cards.map((card) => (
-                <Card title={card.title} onClick={() => alert(`Clicked ${card.title}`)}>
-                    {card.content}
-                </Card>
-            ))}
+            <Card title="Counter">
+                <p>Count: {count} </p>
+                <div className="flex">
+                    <button style="margin-right:10px;" onClick={() => setCount((prev) => ++prev)}>
+                        Up 👆
+                    </button>
+                    <button onClick={() => setCount((prev) => --prev)}>Down 👇</button>
+                </div>
+            </Card>
+            <Card title="Inputs">
+                <div>Name: {name}</div>
+                <div>Age: {age}</div>
+                <br />
+                <label style="display: block" htmlFor="name">
+                    Your name
+                </label>
+                <input
+                    style="padding: 10px;"
+                    id="name"
+                    onInput={(e: any) => setName(e.target.value)}
+                />
+                <br />
+                <label style="display: block" htmlFor="age">
+                    Your age
+                </label>
+                <input
+                    style="padding: 10px;"
+                    type="number"
+                    id="age"
+                    onInput={(e: any) => setAge(+e.target.value)}
+                />
+            </Card>
         </div>
     );
 };

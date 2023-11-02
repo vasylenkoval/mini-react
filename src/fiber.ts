@@ -1,13 +1,12 @@
 import { Element, Props, FC } from './jsx.js';
 import DOM from './dom.js';
+import { Hooks, initHooks } from './hooks.js';
 
 enum EffectTag {
     update,
     placement,
     delete,
 }
-
-const APP_ROOT_FIBER = 'root';
 
 type Fiber = {
     type: string | FC;
@@ -16,6 +15,8 @@ type Fiber = {
     sibling?: Fiber;
     alternate?: Fiber;
     dom?: Node;
+    hooks?: Hooks;
+    actions?: (() => void)[];
     effectTag?: EffectTag;
     props: Props;
 };
@@ -23,9 +24,8 @@ type Fiber = {
 type MaybeFiber = Fiber | undefined;
 
 let nextUnitOfWork: MaybeFiber;
-let appRoot: MaybeFiber;
 let wipRoot: MaybeFiber;
-let prevRoot: MaybeFiber;
+let currentRoot: MaybeFiber;
 let deletions: Fiber[] = [];
 
 /**
@@ -34,15 +34,29 @@ let deletions: Fiber[] = [];
  * @param element - The JSX element to render.
  */
 export function createRoot(root: Node, element: Element) {
-    appRoot = {
-        type: APP_ROOT_FIBER,
+    wipRoot = {
+        type: 'root',
         dom: root,
         props: {
             children: [element],
         },
     };
-    wipRoot = appRoot;
-    nextUnitOfWork = appRoot;
+
+    nextUnitOfWork = wipRoot;
+}
+
+/**
+ * Re-renders starting from the given fiber.
+ * @param fiber - The fiber element to re-render.
+ */
+export function render() {
+    wipRoot = {
+        type: 'root',
+        dom: currentRoot!.dom,
+        props: currentRoot!.props,
+        alternate: currentRoot,
+    };
+    nextUnitOfWork = wipRoot;
 }
 
 /**
@@ -53,10 +67,10 @@ function commitRoot() {
         commitWork(fiberToDelete);
     }
     deletions = [];
-    if (wipRoot && wipRoot.child) {
-        commitWork(wipRoot.child);
+    if (wipRoot) {
+        commitWork(wipRoot);
     }
-    prevRoot = wipRoot;
+    currentRoot = wipRoot;
     wipRoot = undefined;
 }
 
@@ -83,12 +97,17 @@ function commitWork(fiber: Fiber) {
             }
             case EffectTag.update: {
                 DOM.addProps(fiber.dom, fiber.props, fiber.alternate?.props);
-
                 break;
             }
             case EffectTag.delete: {
-                DOM.removeChild(parentWithDom.dom, fiber.dom);
-                break;
+                let childWithDom = fiber;
+                while (!childWithDom.dom && fiber.child) {
+                    childWithDom = fiber.child;
+                }
+                if (childWithDom.dom) {
+                    DOM.removeChild(parentWithDom.dom, fiber.dom);
+                }
+                return;
             }
         }
     }
@@ -121,6 +140,29 @@ function workloop(deadline: IdleDeadline) {
 
 requestIdleCallback(workloop);
 
+function updateComponent(fiber: Fiber) {
+    if (!fiber.hooks) fiber.hooks = [];
+    if (!fiber.actions) fiber.actions = [];
+
+    // Flush all actions before the render.
+    for (let action of fiber.actions) {
+        action();
+    }
+    if (fiber.actions.length) {
+        fiber.actions.splice(0, fiber.actions.length);
+    }
+
+    // Start recording hooks calls for this component.
+    // Request a re-render if hook action was scheduled.
+    function onAction(action: () => void) {
+        fiber.actions!.push(action);
+        render();
+    }
+    initHooks(fiber.hooks, onAction);
+    const element = (fiber.type as FC)(fiber.props);
+    fiber.props.children = [element];
+}
+
 /**
  * Performs a single unit of work.
  * @param fiber - Fiber to do work on.
@@ -128,7 +170,7 @@ requestIdleCallback(workloop);
  */
 function performUnitOfWork(fiber: Fiber): MaybeFiber {
     if (fiber.type instanceof Function) {
-        fiber.props.children = [fiber.type(fiber.props)];
+        updateComponent(fiber);
     } else if (!fiber.dom) {
         fiber.dom = DOM.createNode(fiber.type);
     }
@@ -185,6 +227,8 @@ function buildChildren(wipFiberParent: Fiber, elements: Element[]) {
                 props: childElement.props,
                 parent: wipFiberParent,
                 alternate: oldFiber,
+                hooks: oldFiber.hooks,
+                actions: oldFiber.actions,
                 dom: oldFiber.dom,
                 effectTag: EffectTag.update,
             };
