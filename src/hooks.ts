@@ -1,30 +1,36 @@
 export enum HookTypes {
     state,
+    effect,
 }
 
 export type StateHook<T> = {
     type: HookTypes.state;
     value: T;
     setter: (value: T | ((prev: T) => T)) => void;
+    queue: (() => void)[];
 };
 
-export type Hooks = StateHook<any>[];
+export type EffectHook = {
+    type: HookTypes.effect;
+    cleanup?: () => void;
+    deps?: unknown[];
+};
+
+export type Hooks = (StateHook<any> | EffectHook)[];
+export type CleanupFunc = () => void;
+export type EffectFunc = () => void | CleanupFunc;
 
 /**
- * Currently processed hooks. Should be set before component's render.
+ * State for currently processed hooks. Reset right before the component's render.
  */
 const current: {
-    /**
-     * Reference to components hooks.
-     */
     hooks: Hooks;
-    /**
-     * Callback to collect hook actions.
-     */
-    scheduleAction: (callback: () => void) => void;
+    notifyOnStateChange: () => void;
+    scheduleEffect: (effect: EffectFunc, prevCleanup?: CleanupFunc) => void;
 } = {
     hooks: [],
-    scheduleAction: () => {},
+    notifyOnStateChange: () => {},
+    scheduleEffect: () => {},
 };
 
 /**
@@ -33,13 +39,26 @@ const current: {
 let hookIndex = 0;
 
 /**
- * Starts to record hooks for a particular component.
- * @param hooks - reference to the hooks array of the component.
- * @param scheduleAction - callback to schedule the current user action from the hook.
+ * Starts to record hooks for a component.
+ * @param hooks - Reference to the hooks array of the component.
+ * @param notifyOnStateChange - Callback for when the state hook setters are called.
+ * @param scheduleEffect - Callback for when the effect needs to be scheduled.
  */
-export function initHooks(hooks: Hooks, scheduleAction: (callback: () => void) => void) {
+export function processHooks(
+    hooks: typeof current.hooks,
+    notifyOnStateChange: typeof current.notifyOnStateChange,
+    scheduleEffect: typeof current.scheduleEffect
+) {
+    // Flush state queues.
+    for (const hook of hooks) {
+        if ('queue' in hook) {
+            for (const action of hook.queue) action();
+            hook.queue.splice(0);
+        }
+    }
     current.hooks = hooks;
-    current.scheduleAction = scheduleAction;
+    current.notifyOnStateChange = notifyOnStateChange;
+    current.scheduleEffect = scheduleEffect;
     hookIndex = 0;
 }
 
@@ -55,25 +74,89 @@ export function useState<T>(initState: T): [StateHook<T>['value'], StateHook<T>[
         return [oldHook.value, oldHook.setter];
     }
 
-    const scheduleAction = current.scheduleAction;
-    const newHook = {
+    // By the time the hook setter will be called the current references will change.
+    const notifyOnStateChange = current.notifyOnStateChange;
+
+    const hook: StateHook<T> = {
         type: HookTypes.state,
         value: initState,
-    } as StateHook<T>;
-
-    function setter(value: Parameters<StateHook<T>['setter']>[0]) {
-        scheduleAction(() => {
-            if (value instanceof Function) {
-                newHook.value = value(newHook.value);
+        queue: [] as (() => void)[],
+        setter(value) {
+            let newValue: T;
+            if (typeof value === 'function') {
+                newValue = (value as (prev: T) => T)(hook.value);
             } else {
-                newHook.value = value;
+                newValue = value;
             }
-        });
+
+            if (newValue !== hook.value) {
+                hook.queue.push(() => {
+                    hook.value = newValue;
+                });
+                notifyOnStateChange();
+            }
+        },
+    };
+
+    current.hooks.push(hook);
+    hookIndex++;
+    return [hook.value, hook.setter];
+}
+
+/**
+ * Helper to collect all effect cleanup functions from the hooks array.
+ * @TODO: separate effects and state from a single hooks array?
+ * @param hooks - Hooks array to collect effect cleanups from.
+ * @param cleanups - Reference to the array to collect the cleanups in.
+ */
+export function collectEffectCleanups(hooks: Hooks, cleanups: CleanupFunc[]) {
+    for (let hook of hooks) {
+        if (hook.type === HookTypes.effect && hook.cleanup) {
+            cleanups.push(hook.cleanup);
+        }
+    }
+}
+
+/**
+ * Runs the effect and stores the cleanup function returned on the same hook.
+ * @param effect - Effect to run.
+ * @param hook - Hook to store the cleanup function on.
+ */
+function executeEffect(effect: EffectFunc, hook: EffectHook) {
+    const cleanup = effect();
+    if (typeof cleanup === 'function') {
+        hook.cleanup = cleanup;
+    }
+}
+
+/**
+ * Schedules effects to run after the component is rendered.
+ * @param effect - Effect function to run. Can return an optional cleanup to run before re-execution or unmount.
+ * @param deps - Array of dependencies for the effect. Effect will be re-run when these change.
+ */
+export function useEffect(effect: EffectFunc, deps?: unknown[]) {
+    const scheduleEffect = current.scheduleEffect;
+    const oldHook = current.hooks[hookIndex] as EffectHook;
+    if (oldHook) {
+        if (
+            !deps ||
+            (deps &&
+                oldHook.deps &&
+                deps.length === oldHook.deps.length &&
+                deps.some((dep, index) => dep !== oldHook.deps?.[index]))
+        ) {
+            scheduleEffect(() => executeEffect(effect, oldHook), oldHook.cleanup);
+            oldHook.deps = deps;
+        }
+        hookIndex++;
+        return;
     }
 
-    newHook.setter = setter;
-    current.hooks.push(newHook);
+    const hook: EffectHook = {
+        type: HookTypes.effect,
+        deps,
+    };
+    scheduleEffect(() => executeEffect(effect, hook));
+    current.hooks.push(hook);
     hookIndex++;
-
-    return [newHook.value, newHook.setter];
 }

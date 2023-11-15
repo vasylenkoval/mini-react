@@ -1,10 +1,10 @@
 import { Element, Props, FC } from './jsx.js';
 import DOM from './dom.js';
-import { Hooks, initHooks } from './hooks.js';
+import { CleanupFunc, EffectFunc, Hooks, processHooks, collectEffectCleanups } from './hooks.js';
 
 enum EffectTag {
+    add,
     update,
-    placement,
     delete,
 }
 
@@ -16,7 +16,6 @@ type Fiber = {
     alternate?: Fiber;
     dom?: Node;
     hooks?: Hooks;
-    actions?: (() => void)[];
     effectTag?: EffectTag;
     props: Props;
 };
@@ -27,11 +26,14 @@ let nextUnitOfWork: MaybeFiber;
 let wipRoot: MaybeFiber;
 let currentRoot: MaybeFiber;
 let deletions: Fiber[] = [];
+let effectsToRun: EffectFunc[] = [];
+let effectCleanupsToRun: CleanupFunc[] = [];
 
 /**
  * Creates app root and kicks off the first render.
  * @param root - The topmost DOM node to attach elements to.
  * @param element - The JSX element to render.
+ * @TODO: different strategy for the first render?
  */
 export function createRoot(root: Node, element: Element) {
     wipRoot = {
@@ -41,15 +43,42 @@ export function createRoot(root: Node, element: Element) {
             children: [element],
         },
     };
-
     nextUnitOfWork = wipRoot;
 }
 
 /**
- * Re-renders starting from the given fiber.
- * @param fiber - The fiber element to re-render.
+ * Re-renders starting from the given component.
+ * @param fiber - The fiber component element to re-render.
  */
-export function render() {
+export function renderComponent(fiber: Fiber) {
+    // @TODO: start rendering from a component and implement a render queue
+
+    // fiber.alternate = undefined;
+    // const wipFiber = Object.assign({}, fiber, {
+    //     alternate: fiber,
+    //     child: undefined,
+    //     effectTag: undefined,
+    // });
+
+    // let parent = fiber.parent!;
+    // let prevSibling: MaybeFiber;
+
+    // // If not direct child, find sibling pointing to this component.
+    // if (parent.child !== fiber) {
+    //     prevSibling = parent.child!.sibling;
+    //     while (prevSibling && prevSibling.sibling !== fiber) {
+    //         prevSibling = prevSibling.sibling;
+    //     }
+    // }
+
+    // // Reset the reference on the pointing nodes to our new fiber.
+    // if (prevSibling) {
+    //     prevSibling.sibling = wipFiber;
+    // } else {
+    //     parent.child = wipFiber;
+    // }
+
+    // For now just re-render the tree.
     wipRoot = {
         type: 'root',
         dom: currentRoot!.dom,
@@ -66,10 +95,19 @@ function commitRoot() {
     for (const fiberToDelete of deletions) {
         commitWork(fiberToDelete);
     }
+
     deletions = [];
     if (wipRoot) {
         commitWork(wipRoot);
     }
+
+    // Running effects in the reverse order. Leaf fibers run their effects first.
+    for (let i = effectCleanupsToRun.length - 1; i >= 0; i--) effectCleanupsToRun[i]();
+    effectCleanupsToRun.splice(0);
+
+    for (let i = effectsToRun.length - 1; i >= 0; i--) effectsToRun[i]();
+    effectsToRun.splice(0);
+
     currentRoot = wipRoot;
     wipRoot = undefined;
 }
@@ -81,14 +119,14 @@ function commitRoot() {
  */
 function commitWork(fiber: Fiber) {
     if (fiber.dom && fiber.parent) {
-        // In case when the parent is a component we need to keep looking for the closest parent with DOM.
+        // Find closest parent that's not a component.
         let parentWithDom: MaybeFiber = fiber.parent;
         while (!parentWithDom.dom) {
             parentWithDom = parentWithDom.parent!;
         }
 
         switch (fiber.effectTag) {
-            case EffectTag.placement: {
+            case EffectTag.add: {
                 if (fiber.props) {
                     DOM.addProps(fiber.dom, fiber.props);
                 }
@@ -100,13 +138,30 @@ function commitWork(fiber: Fiber) {
                 break;
             }
             case EffectTag.delete: {
+                let domToDetach = fiber.dom;
+                let childFiber = fiber.child;
+                while (childFiber) {
+                    childFiber = nextFiber(childFiber, fiber);
+                    if (childFiber) {
+                        // Find the closest dom we can detach.
+                        if (!domToDetach && childFiber.dom) {
+                            domToDetach = childFiber.dom;
+                        }
+                        // Aggregate all effect cleanups to run on unmount
+                        if (childFiber.hooks) {
+                            collectEffectCleanups(childFiber.hooks, effectCleanupsToRun);
+                        }
+                    }
+                }
+
                 let childWithDom = fiber;
                 while (!childWithDom.dom && fiber.child) {
                     childWithDom = fiber.child;
                 }
                 if (childWithDom.dom) {
-                    DOM.removeChild(parentWithDom.dom, fiber.dom);
+                    DOM.removeChild(parentWithDom.dom, childWithDom.dom);
                 }
+
                 return;
             }
         }
@@ -142,23 +197,20 @@ requestIdleCallback(workloop);
 
 function updateComponent(fiber: Fiber) {
     if (!fiber.hooks) fiber.hooks = [];
-    if (!fiber.actions) fiber.actions = [];
 
-    // Flush all actions before the render.
-    for (let action of fiber.actions) {
-        action();
-    }
-    if (fiber.actions.length) {
-        fiber.actions.splice(0, fiber.actions.length);
-    }
+    processHooks(
+        fiber.hooks,
+        function notifyOnStateChange() {
+            renderComponent(fiber);
+        },
+        function scheduleEffect(effect: EffectFunc, cleanup?: CleanupFunc) {
+            effectsToRun.push(effect);
+            if (cleanup) {
+                effectCleanupsToRun.push(cleanup);
+            }
+        }
+    );
 
-    // Start recording hooks calls for this component.
-    // Request a re-render if hook action was scheduled.
-    function onAction(action: () => void) {
-        fiber.actions!.push(action);
-        render();
-    }
-    initHooks(fiber.hooks, onAction);
     const element = (fiber.type as FC)(fiber.props);
     fiber.props.children = [element];
 }
@@ -169,37 +221,34 @@ function updateComponent(fiber: Fiber) {
  * @returns Next unit of work or undefined if no work is left.
  */
 function performUnitOfWork(fiber: Fiber): MaybeFiber {
-    if (fiber.type instanceof Function) {
+    if (typeof fiber.type === 'function') {
         updateComponent(fiber);
     } else if (!fiber.dom) {
         fiber.dom = DOM.createNode(fiber.type);
     }
-
-    if (fiber.props?.children?.length) {
-        buildChildren(fiber, fiber.props.children);
-    }
-
-    return nextFiber(fiber);
+    diffChildren(fiber, fiber.props.children);
+    return nextFiber(fiber, wipRoot);
 }
 
 /**
  * Returns the next fiber to be processed by the unit of work.
  * @param currFiber - Current fiber that work was done on.
+ * @param root - Top fiber to return to.
  * @returns Next fiber to perform work on.
  */
-function nextFiber(currFiber: Fiber): MaybeFiber {
+function nextFiber(currFiber: Fiber, root?: Fiber): MaybeFiber {
     // Visit up to the last child first.
     if (currFiber.child) {
         return currFiber.child;
     }
 
     let nextFiber: MaybeFiber = currFiber;
-    while (nextFiber) {
+    while (nextFiber && nextFiber !== root) {
         // Exhaust all siblings.
         if (nextFiber.sibling) {
             return nextFiber.sibling;
         }
-        // Go up the tree until we reach the root.
+        // Go up the tree until we reach the root or undefined
         nextFiber = nextFiber.parent;
     }
 
@@ -211,7 +260,7 @@ function nextFiber(currFiber: Fiber): MaybeFiber {
  * @param wipFiberParent - Parent fiber to build children for.
  * @param elements - Child elements.
  */
-function buildChildren(wipFiberParent: Fiber, elements: Element[]) {
+function diffChildren(wipFiberParent: Fiber, elements: Element[] = []) {
     let oldFiber = wipFiberParent.alternate && wipFiberParent.alternate.child;
     let prevSibling: MaybeFiber;
     let index = 0;
@@ -219,6 +268,11 @@ function buildChildren(wipFiberParent: Fiber, elements: Element[]) {
         let newFiber: MaybeFiber;
         const childElement = elements[index] as Element | undefined;
         const isSame = oldFiber?.type === childElement?.type;
+
+        // Only store 2 levels.
+        if (oldFiber) {
+            oldFiber.alternate = undefined;
+        }
 
         // Same node, update props.
         if (oldFiber && childElement && isSame) {
@@ -228,7 +282,6 @@ function buildChildren(wipFiberParent: Fiber, elements: Element[]) {
                 parent: wipFiberParent,
                 alternate: oldFiber,
                 hooks: oldFiber.hooks,
-                actions: oldFiber.actions,
                 dom: oldFiber.dom,
                 effectTag: EffectTag.update,
             };
@@ -240,7 +293,7 @@ function buildChildren(wipFiberParent: Fiber, elements: Element[]) {
                 type: childElement.type,
                 props: childElement.props,
                 parent: wipFiberParent,
-                effectTag: EffectTag.placement,
+                effectTag: EffectTag.add,
             };
         }
 

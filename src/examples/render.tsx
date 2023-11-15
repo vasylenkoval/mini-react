@@ -1,7 +1,7 @@
 /** @jsx jsx */
 import { createRoot } from '../fiber.js';
 import { jsx, Element } from '../jsx.js';
-import { useState } from '../hooks.js';
+import { useState, useEffect } from '../hooks.js';
 
 const root = document.getElementById('root');
 const style = document.createElement('style');
@@ -28,11 +28,21 @@ style.textContent = `
   }
 
   .card__title {
+    cursor: pointer;
     font-size: 18px;
     font-weight: bold;
     border-bottom: 1px solid rgba(82, 82, 89, .24);
     padding: 10px;
     margin-bottom: 10px;
+  }
+
+  .card__title__arrow {
+    transition: transform 0.2s;
+    transform: rotate(0);
+  }
+
+  .card__title__arrow--up {
+    transform: rotate(180deg);
   }
 
   .card__body {
@@ -53,9 +63,39 @@ const Card = ({ children, title }: { children?: Element | Element[]; title: stri
     );
 };
 
+const TimerCard = () => {
+    const [timer, setTimer] = useState(0); // ms
+    const [isStopped, setIsStopped] = useState(true);
+
+    useEffect(() => {
+        if (isStopped) {
+            return;
+        }
+
+        let timerId = setInterval(() => setTimer((time) => time + 100), 100);
+        return () => {
+            clearInterval(timerId);
+        };
+    }, [isStopped]);
+
+    return (
+        <Card title="Timer">
+            <div className="flex">
+                <p>Timer: {(timer / 1000).toFixed(1)}</p>
+                <button
+                    style="margin-right:10px;"
+                    onClick={() => setIsStopped((isStopped) => !isStopped)}
+                >
+                    {isStopped ? 'Start timer' : 'Stop timer'} ⏱
+                </button>
+            </div>
+        </Card>
+    );
+};
+
 const App = () => {
-    const [name, setName] = useState('');
-    const [age, setAge] = useState(0);
+    const [name, setName] = useState('John Doe');
+    const [age, setAge] = useState(33);
     const [count, setCount] = useState(0);
 
     return (
@@ -67,9 +107,10 @@ const App = () => {
                     <button style="margin-right:10px;" onClick={() => setCount((prev) => ++prev)}>
                         Up 👆
                     </button>
-                    <button onClick={() => setCount((prev) => --prev)}>Down 👇</button>
+                    <button onClick={() => setCount((prev) => Math.max(--prev, 0))}>Down 👇</button>
                 </div>
             </Card>
+            <TimerCard />
             <Card title="Inputs">
                 <div>Name: {name}</div>
                 <div>Age: {age}</div>
@@ -78,6 +119,7 @@ const App = () => {
                     Your name
                 </label>
                 <input
+                    value={name}
                     style="padding: 10px;"
                     id="name"
                     onInput={(e: any) => setName(e.target.value)}
@@ -87,6 +129,7 @@ const App = () => {
                     Your age
                 </label>
                 <input
+                    value={age}
                     style="padding: 10px;"
                     type="number"
                     id="age"

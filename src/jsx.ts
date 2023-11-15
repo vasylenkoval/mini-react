@@ -21,7 +21,6 @@ function prepareChildren(elements: (Element | Primitive)[], children: Element[] 
     // Create Element out of primitive children.
     for (const element of elements) {
         if (typeof element === 'object' && element) {
-            // @TODO: look up what react does
             if (Array.isArray(element)) {
                 prepareChildren(element, children);
             } else {
