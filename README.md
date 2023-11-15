@@ -1,3 +1,22 @@
-# mini-react
-A work-in-progress re-implementation of React originally based on Rodrigo Pombo's [Build your own React](https://pomb.us/build-your-own-react/) article. The goal of this project is to gain a deeper understanding of how React works by implementing a subset of public APIs related to functional components and hooks.
+# ⚛️ Mini React
+A work-in-progress, toy re-implementation of a subset of React's public API for learning purposes. Originally based on Rodrigo Pombo's [Build your own React](https://pomb.us/build-your-own-react/). 
+
+## Preview
+[UI example](https://vasylenkoval.github.io/mini-react/) built with the latest version. [Source](https://github.com/vasylenkoval/mini-react/blob/main/src/examples/cards.tsx).
+
+## Scope
+- Functional components ✅
+- useState ✅
+- useEffect ✅
+- useLayoutEffect
+- useRef
+- useCallback
+- useMemo
+- Memo HOC
+- Code-Splitting
+- ...
+
+## Not in scope
+- Class components
+- Server-Side Rendering
 
