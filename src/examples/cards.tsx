@@ -1,7 +1,7 @@
 /** @jsx jsx */
 import { createRoot } from '../fiber.js';
 import { jsx, Element } from '../jsx.js';
-import { useState, useEffect } from '../hooks.js';
+import { useState, useEffect, useMemo } from '../hooks.js';
 
 const root = document.getElementById('root');
 const style = document.createElement('style');

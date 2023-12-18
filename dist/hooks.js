@@ -2,6 +2,7 @@ export var HookTypes;
 (function (HookTypes) {
     HookTypes[HookTypes["state"] = 0] = "state";
     HookTypes[HookTypes["effect"] = 1] = "effect";
+    HookTypes[HookTypes["memo"] = 2] = "memo";
 })(HookTypes || (HookTypes = {}));
 /**
  * State for currently processed hooks. Reset right before the component's render.
@@ -13,8 +14,9 @@ const current = {
 };
 /**
  * Index of currently executing hook within a component.
+ * Starts with -1, each hook will increment this value in the beginning.
  */
-let hookIndex = 0;
+let hookIndex = -1;
 /**
  * Starts to record hooks for a component.
  * @param hooks - Reference to the hooks array of the component.
@@ -33,7 +35,7 @@ export function processHooks(hooks, notifyOnStateChange, scheduleEffect) {
     current.hooks = hooks;
     current.notifyOnStateChange = notifyOnStateChange;
     current.scheduleEffect = scheduleEffect;
-    hookIndex = 0;
+    hookIndex = -1;
 }
 /**
  * Stores state within the component.
@@ -41,16 +43,16 @@ export function processHooks(hooks, notifyOnStateChange, scheduleEffect) {
  * @returns Current value and a setter.
  */
 export function useState(initState) {
+    hookIndex++;
     const oldHook = current.hooks[hookIndex];
     if (oldHook) {
-        hookIndex++;
         return [oldHook.value, oldHook.setter];
     }
     // By the time the hook setter will be called the current references will change.
     const notifyOnStateChange = current.notifyOnStateChange;
     const hook = {
         type: HookTypes.state,
-        value: initState,
+        value: typeof initState === 'function' ? initState() : initState,
         queue: [],
         setter(value) {
             let newValue;
@@ -69,7 +71,6 @@ export function useState(initState) {
         },
     };
     current.hooks.push(hook);
-    hookIndex++;
     return [hook.value, hook.setter];
 }
 /**
@@ -97,30 +98,63 @@ function executeEffect(effect, hook) {
     }
 }
 /**
+ * Compares if new hook deps are equal to the prev deps.
+ * If deps array is missing this function will return false.
+ * @param newDeps - new hook deps.
+ * @param prevDeps - previous hook deps.
+ * @returns True if dependencies are equal.
+ */
+function areDepsEqual(newDeps, prevDeps) {
+    if (!newDeps || !prevDeps) {
+        return false;
+    }
+    return (newDeps.length === prevDeps.length &&
+        (newDeps.length === 0 || newDeps.every((newDep, index) => newDep === prevDeps[index])));
+}
+/**
  * Schedules effects to run after the component is rendered.
  * @param effect - Effect function to run. Can return an optional cleanup to run before re-execution or unmount.
  * @param deps - Array of dependencies for the effect. Effect will be re-run when these change.
  */
 export function useEffect(effect, deps) {
+    hookIndex++;
     const scheduleEffect = current.scheduleEffect;
     const oldHook = current.hooks[hookIndex];
     if (oldHook) {
-        if (!deps ||
-            (deps &&
-                oldHook.deps &&
-                deps.length === oldHook.deps.length &&
-                deps.some((dep, index) => { var _a; return dep !== ((_a = oldHook.deps) === null || _a === void 0 ? void 0 : _a[index]); }))) {
+        if (!areDepsEqual(deps, oldHook.deps)) {
             scheduleEffect(() => executeEffect(effect, oldHook), oldHook.cleanup);
             oldHook.deps = deps;
         }
-        hookIndex++;
         return;
     }
     const hook = {
         type: HookTypes.effect,
         deps,
     };
-    scheduleEffect(() => executeEffect(effect, hook));
     current.hooks.push(hook);
+    scheduleEffect(() => executeEffect(effect, hook));
+}
+/**
+ * Remembers the value returned from the callback passed.
+ * Returns the same value between renders if dependencies haven't changed.
+ * @param valueFn -
+ * @param deps -
+ */
+export function useMemo(valueFn, deps) {
     hookIndex++;
+    const oldHook = current.hooks[hookIndex];
+    if (oldHook) {
+        if (!areDepsEqual(deps, oldHook.deps)) {
+            oldHook.deps = deps;
+            oldHook.value = valueFn();
+        }
+        return oldHook.value;
+    }
+    const hook = {
+        type: HookTypes.memo,
+        deps,
+        value: valueFn(),
+    };
+    current.hooks.push(hook);
+    return hook.value;
 }

@@ -76,22 +76,26 @@ function commitRoot() {
         commitWork(wipRoot);
     }
     // Running effects in the reverse order. Leaf fibers run their effects first.
-    for (let i = effectCleanupsToRun.length - 1; i >= 0; i--)
+    for (let i = effectCleanupsToRun.length - 1; i >= 0; i--) {
         effectCleanupsToRun[i]();
+    }
     effectCleanupsToRun.splice(0);
-    for (let i = effectsToRun.length - 1; i >= 0; i--)
+    for (let i = effectsToRun.length - 1; i >= 0; i--) {
         effectsToRun[i]();
+    }
     effectsToRun.splice(0);
     currentRoot = wipRoot;
     wipRoot = undefined;
 }
 /**
  * Recursively commits fibers by attaching their DOM nodes to parent's and adding new props.
+ * New subtrees are mounted at once.
  * Removes nodes marked to be deleted.
  * @param fiber - Fiber to commit.
  */
 function commitWork(fiber) {
-    var _a;
+    var _a, _b;
+    const runAfterCommit = [];
     if (fiber.dom && fiber.parent) {
         // Find closest parent that's not a component.
         let parentWithDom = fiber.parent;
@@ -103,11 +107,22 @@ function commitWork(fiber) {
                 if (fiber.props) {
                     DOM.addProps(fiber.dom, fiber.props);
                 }
-                DOM.appendChild(parentWithDom.dom, fiber.dom);
+                const parent = parentWithDom.dom;
+                const child = fiber.dom;
+                // When mounting to root or new subtree parent, nodes will be attached at once
+                const isParentRoot = parentWithDom.type === 'root';
+                const isNewSubtree = parentWithDom.effectTag === EffectTag.add &&
+                    ((_a = parentWithDom.parent) === null || _a === void 0 ? void 0 : _a.effectTag) === EffectTag.update;
+                if (isParentRoot || isNewSubtree) {
+                    runAfterCommit.push(() => DOM.appendChild(parent, child));
+                }
+                else {
+                    DOM.appendChild(parent, child);
+                }
                 break;
             }
             case EffectTag.update: {
-                DOM.addProps(fiber.dom, fiber.props, (_a = fiber.alternate) === null || _a === void 0 ? void 0 : _a.props);
+                DOM.addProps(fiber.dom, fiber.props, (_b = fiber.alternate) === null || _b === void 0 ? void 0 : _b.props);
                 break;
             }
             case EffectTag.delete: {
@@ -142,6 +157,11 @@ function commitWork(fiber) {
     }
     if (fiber.sibling) {
         commitWork(fiber.sibling);
+    }
+    if (runAfterCommit.length) {
+        for (const action of runAfterCommit) {
+            action();
+        }
     }
 }
 /**

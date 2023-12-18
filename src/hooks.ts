@@ -1,6 +1,7 @@
 export enum HookTypes {
     state,
     effect,
+    memo,
 }
 
 export type StateHook<T> = {
@@ -16,7 +17,13 @@ export type EffectHook = {
     deps?: unknown[];
 };
 
-export type Hooks = (StateHook<any> | EffectHook)[];
+export type MemoHook<T> = {
+    type: HookTypes.memo;
+    value: T;
+    deps?: unknown[];
+};
+
+export type Hooks = (StateHook<any> | MemoHook<any> | EffectHook)[];
 export type CleanupFunc = () => void;
 export type EffectFunc = () => void | CleanupFunc;
 
@@ -35,8 +42,9 @@ const current: {
 
 /**
  * Index of currently executing hook within a component.
+ * Starts with -1, each hook will increment this value in the beginning.
  */
-let hookIndex = 0;
+let hookIndex = -1;
 
 /**
  * Starts to record hooks for a component.
@@ -59,7 +67,7 @@ export function processHooks(
     current.hooks = hooks;
     current.notifyOnStateChange = notifyOnStateChange;
     current.scheduleEffect = scheduleEffect;
-    hookIndex = 0;
+    hookIndex = -1;
 }
 
 /**
@@ -67,10 +75,12 @@ export function processHooks(
  * @param initState
  * @returns Current value and a setter.
  */
-export function useState<T>(initState: T): [StateHook<T>['value'], StateHook<T>['setter']] {
+export function useState<T>(
+    initState: T | (() => T)
+): [StateHook<T>['value'], StateHook<T>['setter']] {
+    hookIndex++;
     const oldHook = current.hooks[hookIndex] as StateHook<T>;
     if (oldHook) {
-        hookIndex++;
         return [oldHook.value, oldHook.setter];
     }
 
@@ -79,7 +89,7 @@ export function useState<T>(initState: T): [StateHook<T>['value'], StateHook<T>[
 
     const hook: StateHook<T> = {
         type: HookTypes.state,
-        value: initState,
+        value: typeof initState === 'function' ? (initState as () => T)() : initState,
         queue: [] as (() => void)[],
         setter(value) {
             let newValue: T;
@@ -99,7 +109,6 @@ export function useState<T>(initState: T): [StateHook<T>['value'], StateHook<T>[
     };
 
     current.hooks.push(hook);
-    hookIndex++;
     return [hook.value, hook.setter];
 }
 
@@ -130,25 +139,37 @@ function executeEffect(effect: EffectFunc, hook: EffectHook) {
 }
 
 /**
+ * Compares if new hook deps are equal to the prev deps.
+ * If deps array is missing this function will return false.
+ * @param newDeps - new hook deps.
+ * @param prevDeps - previous hook deps.
+ * @returns True if dependencies are equal.
+ */
+function areDepsEqual(newDeps?: unknown[], prevDeps?: unknown[]): boolean {
+    if (!newDeps || !prevDeps) {
+        return false;
+    }
+
+    return (
+        newDeps.length === prevDeps.length &&
+        (newDeps.length === 0 || newDeps.every((newDep, index) => newDep === prevDeps[index]))
+    );
+}
+
+/**
  * Schedules effects to run after the component is rendered.
  * @param effect - Effect function to run. Can return an optional cleanup to run before re-execution or unmount.
  * @param deps - Array of dependencies for the effect. Effect will be re-run when these change.
  */
 export function useEffect(effect: EffectFunc, deps?: unknown[]) {
+    hookIndex++;
     const scheduleEffect = current.scheduleEffect;
     const oldHook = current.hooks[hookIndex] as EffectHook;
     if (oldHook) {
-        if (
-            !deps ||
-            (deps &&
-                oldHook.deps &&
-                deps.length === oldHook.deps.length &&
-                deps.some((dep, index) => dep !== oldHook.deps?.[index]))
-        ) {
+        if (!areDepsEqual(deps, oldHook.deps)) {
             scheduleEffect(() => executeEffect(effect, oldHook), oldHook.cleanup);
             oldHook.deps = deps;
         }
-        hookIndex++;
         return;
     }
 
@@ -156,7 +177,34 @@ export function useEffect(effect: EffectFunc, deps?: unknown[]) {
         type: HookTypes.effect,
         deps,
     };
-    scheduleEffect(() => executeEffect(effect, hook));
+
     current.hooks.push(hook);
+    scheduleEffect(() => executeEffect(effect, hook));
+}
+
+/**
+ * Remembers the value returned from the callback passed.
+ * Returns the same value between renders if dependencies haven't changed.
+ * @param valueFn -
+ * @param deps -
+ */
+export function useMemo<T>(valueFn: () => T, deps: unknown[]) {
     hookIndex++;
+    const oldHook = current.hooks[hookIndex] as MemoHook<T>;
+    if (oldHook) {
+        if (!areDepsEqual(deps, oldHook.deps)) {
+            oldHook.deps = deps;
+            oldHook.value = valueFn();
+        }
+        return oldHook.value;
+    }
+
+    const hook: MemoHook<T> = {
+        type: HookTypes.memo,
+        deps,
+        value: valueFn(),
+    };
+
+    current.hooks.push(hook);
+    return hook.value;
 }
