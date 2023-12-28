@@ -2,22 +2,67 @@ import { Element, Props, FC } from './jsx.js';
 import DOM from './dom.js';
 import { CleanupFunc, EffectFunc, Hooks, processHooks, collectEffectCleanups } from './hooks.js';
 
+/**
+ * Effect tags used to determine what to do with the fiber after a render.
+ */
 enum EffectTag {
+    /**
+     * Add a new node to the DOM.
+     */
     add,
+    /**
+     * Update an existing node in the DOM.
+     */
     update,
+    /**
+     * Delete a node from the DOM.
+     */
     delete,
 }
 
+const APP_ROOT = 'root' as const;
+
 type Fiber = {
+    /**
+     * A string if it's a DOM node, a function if it's a component.
+     */
     type: string | FC;
+    /**
+     * The parent fiber.
+     */
     parent?: Fiber;
+    /**
+     * The first child fiber.
+     */
     child?: Fiber;
+    /**
+     * The next sibling fiber.
+     */
     sibling?: Fiber;
+    /**
+     * The alternate fiber. Used to compare old and new trees.
+     */
     alternate?: Fiber;
+    /**
+     * The dom node of the fiber. Only set for DOM non-component fibers.
+     */
     dom?: Node;
+    /**
+     * Hooks, set if the fiber is a component.
+     */
     hooks?: Hooks;
+    /**
+     * The effect tag of the fiber. Used to determine what to do with the fiber after a render.
+     */
     effectTag?: EffectTag;
+    /**
+     * The props of the fiber.
+     */
     props: Props;
+    /**
+     * The computed children of the fiber. Set if the fiber is a component.
+     */
+    computedChildElements?: Element[];
 };
 
 type MaybeFiber = Fiber | undefined;
@@ -28,22 +73,33 @@ let currentRoot: MaybeFiber;
 let deletions: Fiber[] = [];
 let effectsToRun: EffectFunc[] = [];
 let effectCleanupsToRun: CleanupFunc[] = [];
+let isTestEnv = false;
+let renderQueue: Fiber[] = [];
+let scheduler = window.requestIdleCallback;
 
 /**
  * Creates app root and kicks off the first render.
  * @param root - The topmost DOM node to attach elements to.
  * @param element - The JSX element to render.
- * @TODO: different strategy for the first render?
+ * @param options - Options for the render.
  */
-export function createRoot(root: Node, element: Element) {
+export function createRoot(root: Node, element: Element, options?: { isTestEnv?: boolean }) {
+    if (options && options.isTestEnv) {
+        isTestEnv = options.isTestEnv;
+        scheduler = (callback: IdleRequestCallback): number => {
+            callback({ timeRemaining: () => 100, didTimeout: false });
+            return 0;
+        };
+    }
     wipRoot = {
-        type: 'root',
+        type: APP_ROOT,
         dom: root,
         props: {
             children: [element],
         },
     };
     nextUnitOfWork = wipRoot;
+    scheduler(workloop);
 }
 
 /**
@@ -51,36 +107,11 @@ export function createRoot(root: Node, element: Element) {
  * @param fiber - The fiber component element to re-render.
  */
 export function renderComponent(fiber: Fiber) {
-    // @TODO: start rendering from a component and implement a render queue
-
-    // fiber.alternate = undefined;
-    // const wipFiber = Object.assign({}, fiber, {
-    //     alternate: fiber,
-    //     child: undefined,
-    //     effectTag: undefined,
-    // });
-
-    // let parent = fiber.parent!;
-    // let prevSibling: MaybeFiber;
-
-    // // If not direct child, find sibling pointing to this component.
-    // if (parent.child !== fiber) {
-    //     prevSibling = parent.child!.sibling;
-    //     while (prevSibling && prevSibling.sibling !== fiber) {
-    //         prevSibling = prevSibling.sibling;
-    //     }
-    // }
-
-    // // Reset the reference on the pointing nodes to our new fiber.
-    // if (prevSibling) {
-    //     prevSibling.sibling = wipFiber;
-    // } else {
-    //     parent.child = wipFiber;
-    // }
-
-    // For now just re-render the tree.
+    if (!renderQueue.includes(fiber)) {
+        renderQueue.push(fiber);
+    }
     wipRoot = {
-        type: 'root',
+        type: APP_ROOT,
         dom: currentRoot!.dom,
         props: currentRoot!.props,
         alternate: currentRoot,
@@ -110,7 +141,9 @@ function commitRoot() {
     }
     effectsToRun.splice(0);
 
-    currentRoot = wipRoot;
+    if (wipRoot && wipRoot.type === APP_ROOT) {
+        currentRoot = wipRoot;
+    }
     wipRoot = undefined;
 }
 
@@ -140,7 +173,7 @@ function commitWork(fiber: Fiber) {
                 const child = fiber.dom;
 
                 // When mounting to root or new subtree parent, nodes will be attached at once
-                const isParentRoot = parentWithDom.type === 'root';
+                const isParentRoot = parentWithDom.type === APP_ROOT;
                 const isNewSubtree =
                     parentWithDom.effectTag === EffectTag.add &&
                     parentWithDom.parent?.effectTag === EffectTag.update;
@@ -216,13 +249,18 @@ function workloop(deadline: IdleDeadline) {
         commitRoot();
     }
 
-    requestIdleCallback(workloop);
+    // Loop won't run continuously in test env.
+    if (isTestEnv && !wipRoot) {
+        return;
+    }
+
+    scheduler(workloop);
 }
 
-requestIdleCallback(workloop);
-
 function updateComponent(fiber: Fiber) {
-    if (!fiber.hooks) fiber.hooks = [];
+    if (!fiber.hooks) {
+        fiber.hooks = [];
+    }
 
     processHooks(
         fiber.hooks,
@@ -238,7 +276,7 @@ function updateComponent(fiber: Fiber) {
     );
 
     const element = (fiber.type as FC)(fiber.props);
-    fiber.props.children = [element];
+    fiber.computedChildElements = [element];
 }
 
 /**
@@ -252,7 +290,7 @@ function performUnitOfWork(fiber: Fiber): MaybeFiber {
     } else if (!fiber.dom) {
         fiber.dom = DOM.createNode(fiber.type);
     }
-    diffChildren(fiber, fiber.props.children);
+    diffChildren(fiber, fiber.computedChildElements || fiber.props.children);
     return nextFiber(fiber, wipRoot);
 }
 

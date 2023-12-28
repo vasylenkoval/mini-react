@@ -58,7 +58,7 @@ describe('useState', () => {
         expect(renderVal[1][0].value).toEqual(test2);
     });
 
-    it('should be able to init value with a func', () => {
+    it('should be able to init a value with a func', () => {
         /* Arrange */
         const initValue = 'test';
         const initFn = () => initValue;

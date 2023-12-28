@@ -11,7 +11,7 @@ describe('jsx', () => {
                     {
                         type: 'a',
                         props: {
-                            children: ['bar'],
+                            children: [{ type: 'TEXT', props: { nodeValue: 'bar' } }],
                         },
                     },
                     {
@@ -41,7 +41,7 @@ describe('jsx', () => {
                     {
                         type: 'a',
                         props: {
-                            children: ['bar'],
+                            children: [{ type: 'TEXT', props: { nodeValue: 'bar' } }],
                         },
                     },
                     {
