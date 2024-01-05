@@ -20,6 +20,9 @@ const getEventName = (propName) => propName.toLowerCase().substring(2);
  * @param prevProps - Previously applied props.
  */
 export function addProps(dom, props, prevProps) {
+    dom.__listeners = [...(dom.__listeners || [])];
+    const addListener = (name, fn) => dom.__listeners.push([name, fn]);
+    const removeListener = (fn) => dom.__listeners.splice(dom.__listeners.indexOf(fn), 1);
     if (prevProps) {
         // Resets props that are completely removed.
         for (let propToReset in prevProps) {
@@ -32,6 +35,7 @@ export function addProps(dom, props, prevProps) {
             }
             else if (isEvent(propToReset)) {
                 dom.removeEventListener(getEventName(propToReset), prevProps[propToReset]);
+                removeListener(prevProps[propToReset]);
             }
         }
     }
@@ -49,8 +53,10 @@ export function addProps(dom, props, prevProps) {
             if (prevProps && prevProps[propToAdd]) {
                 // Remove previous listener.
                 dom.removeEventListener(eventName, prevProps[propToAdd]);
+                removeListener(prevProps[propToAdd]);
             }
             dom.addEventListener(eventName, props[propToAdd]);
+            addListener(eventName, props[propToAdd]);
         }
     }
 }

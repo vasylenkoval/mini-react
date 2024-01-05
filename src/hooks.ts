@@ -6,6 +6,7 @@ export enum HookTypes {
 
 export type StateHook<T> = {
     type: HookTypes.state;
+    notify: () => void;
     value: T;
     setter: (value: T | ((prev: T) => T)) => void;
     queue: (() => void)[];
@@ -81,18 +82,18 @@ export function useState<T>(
     hookIndex++;
     const oldHook = current.hooks[hookIndex] as StateHook<T>;
     if (oldHook) {
+        oldHook.notify = current.notifyOnStateChange;
         return [oldHook.value, oldHook.setter];
     }
 
-    // By the time the hook setter will be called the current references will change.
-    const notifyOnStateChange = current.notifyOnStateChange;
-
     const hook: StateHook<T> = {
         type: HookTypes.state,
+        notify: current.notifyOnStateChange,
         value: typeof initState === 'function' ? (initState as () => T)() : initState,
         queue: [] as (() => void)[],
         setter(value) {
             let newValue: T;
+            // @TODO: call the function in the queue instead
             if (typeof value === 'function') {
                 newValue = (value as (prev: T) => T)(hook.value);
             } else {
@@ -103,7 +104,7 @@ export function useState<T>(
                 hook.queue.push(() => {
                     hook.value = newValue;
                 });
-                notifyOnStateChange();
+                hook.notify();
             }
         },
     };

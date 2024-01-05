@@ -46,16 +46,17 @@ export function useState(initState) {
     hookIndex++;
     const oldHook = current.hooks[hookIndex];
     if (oldHook) {
+        oldHook.notify = current.notifyOnStateChange;
         return [oldHook.value, oldHook.setter];
     }
-    // By the time the hook setter will be called the current references will change.
-    const notifyOnStateChange = current.notifyOnStateChange;
     const hook = {
         type: HookTypes.state,
+        notify: current.notifyOnStateChange,
         value: typeof initState === 'function' ? initState() : initState,
         queue: [],
         setter(value) {
             let newValue;
+            // @TODO: call the function in the queue instead
             if (typeof value === 'function') {
                 newValue = value(hook.value);
             }
@@ -66,7 +67,7 @@ export function useState(initState) {
                 hook.queue.push(() => {
                     hook.value = newValue;
                 });
-                notifyOnStateChange();
+                hook.notify();
             }
         },
     };

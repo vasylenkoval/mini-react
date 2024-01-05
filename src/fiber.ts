@@ -60,6 +60,10 @@ type Fiber = {
      */
     props: Props;
     /**
+     * Version of the fiber node. Incremented each time the same fiber is recreated.
+     */
+    version: number;
+    /**
      * The computed children of the fiber. Set if the fiber is a component.
      */
     computedChildElements?: Element[];
@@ -73,9 +77,13 @@ let currentRoot: MaybeFiber;
 let deletions: Fiber[] = [];
 let effectsToRun: EffectFunc[] = [];
 let effectCleanupsToRun: CleanupFunc[] = [];
-let isTestEnv = false;
-let renderQueue: Fiber[] = [];
-let scheduler = window.requestIdleCallback;
+let isTestEnv = true || (globalThis.process && globalThis.process.env.NODE_ENV === 'test');
+let scheduler = isTestEnv
+    ? function mockTestRequestIdleCallback(callback: IdleRequestCallback): number {
+          callback({ timeRemaining: () => 100, didTimeout: false });
+          return 0;
+      }
+    : window.requestIdleCallback;
 
 /**
  * Creates app root and kicks off the first render.
@@ -83,17 +91,11 @@ let scheduler = window.requestIdleCallback;
  * @param element - The JSX element to render.
  * @param options - Options for the render.
  */
-export function createRoot(root: Node, element: Element, options?: { isTestEnv?: boolean }) {
-    if (options && options.isTestEnv) {
-        isTestEnv = options.isTestEnv;
-        scheduler = (callback: IdleRequestCallback): number => {
-            callback({ timeRemaining: () => 100, didTimeout: false });
-            return 0;
-        };
-    }
+export function createRoot(root: Node, element: Element) {
     wipRoot = {
         type: APP_ROOT,
         dom: root,
+        version: 0,
         props: {
             children: [element],
         },
@@ -104,19 +106,14 @@ export function createRoot(root: Node, element: Element, options?: { isTestEnv?:
 
 /**
  * Re-renders starting from the given component.
- * @param fiber - The fiber component element to re-render.
+ * @param fiber - The component element to re-render.
  */
 export function renderComponent(fiber: Fiber) {
-    if (!renderQueue.includes(fiber)) {
-        renderQueue.push(fiber);
-    }
-    wipRoot = {
-        type: APP_ROOT,
-        dom: currentRoot!.dom,
-        props: currentRoot!.props,
-        alternate: currentRoot,
-    };
+    wipRoot = { ...fiber, alternate: fiber, version: fiber.version + 1 };
     nextUnitOfWork = wipRoot;
+    if (isTestEnv) {
+        scheduler(workloop);
+    }
 }
 
 /**
@@ -130,6 +127,35 @@ function commitRoot() {
     if (wipRoot) {
         commitWork(wipRoot);
     }
+
+    if (wipRoot) {
+        if (wipRoot.type === APP_ROOT) {
+            // first mount
+            currentRoot = wipRoot;
+        } else {
+            // subsequent renders
+            const originalFiber = wipRoot.alternate;
+            const parent = wipRoot.parent!;
+            let nextChild = parent.child!;
+
+            if (nextChild === originalFiber) {
+                parent.child = wipRoot;
+            } else {
+                while (nextChild) {
+                    if (nextChild.sibling === originalFiber) {
+                        nextChild.sibling = wipRoot;
+                        break;
+                    }
+                    nextChild = nextChild.sibling!;
+                }
+            }
+        }
+    }
+
+    wipRoot = undefined;
+
+    console.log('Commited new root', currentRoot);
+
     // Running effects in the reverse order. Leaf fibers run their effects first.
     for (let i = effectCleanupsToRun.length - 1; i >= 0; i--) {
         effectCleanupsToRun[i]();
@@ -140,11 +166,6 @@ function commitRoot() {
         effectsToRun[i]();
     }
     effectsToRun.splice(0);
-
-    if (wipRoot && wipRoot.type === APP_ROOT) {
-        currentRoot = wipRoot;
-    }
-    wipRoot = undefined;
 }
 
 /**
@@ -341,23 +362,25 @@ function diffChildren(wipFiberParent: Fiber, elements: Element[] = []) {
         // Same node, update props.
         if (oldFiber && childElement && isSame) {
             newFiber = {
+                effectTag: EffectTag.update,
                 type: childElement.type,
                 props: childElement.props,
                 parent: wipFiberParent,
                 alternate: oldFiber,
                 hooks: oldFiber.hooks,
                 dom: oldFiber.dom,
-                effectTag: EffectTag.update,
+                version: oldFiber.version + 1,
             };
         }
 
         // Brand new node.
         if (!oldFiber && childElement) {
             newFiber = {
+                effectTag: EffectTag.add,
                 type: childElement.type,
                 props: childElement.props,
                 parent: wipFiberParent,
-                effectTag: EffectTag.add,
+                version: 0,
             };
         }
 

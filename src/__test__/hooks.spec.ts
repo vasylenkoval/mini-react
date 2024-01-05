@@ -23,7 +23,7 @@ const runHook = <TProps, TResult>(
 };
 
 describe('useState', () => {
-    it('should be able to mount a hook and re-render', () => {
+    it('should mount a hook and re-render', () => {
         /* Arrange */
         const test1 = 'Test 1';
         const test2 = 'Test 2';
@@ -58,7 +58,7 @@ describe('useState', () => {
         expect(renderVal[1][0].value).toEqual(test2);
     });
 
-    it('should be able to init a value with a func', () => {
+    it('should init a value with a func', () => {
         /* Arrange */
         const initValue = 'test';
         const initFn = () => initValue;

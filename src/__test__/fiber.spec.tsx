@@ -4,7 +4,7 @@ import { useState } from '../hooks';
 import { jsx } from '../jsx';
 
 describe('render', () => {
-    it('should be able to render a simple app', () => {
+    it('should render a simple app', () => {
         /* Arrange */
         const rootElement = document.createElement('div');
 
@@ -28,9 +28,7 @@ describe('render', () => {
         };
 
         /* Act */
-        createRoot(rootElement, <App messages={['message 1', 'message 2']} />, {
-            isTestEnv: true,
-        });
+        createRoot(rootElement, <App messages={['message 1', 'message 2']} />);
 
         /* Assert */
         expect(rootElement.innerHTML).toBe(
@@ -38,7 +36,7 @@ describe('render', () => {
         );
     });
 
-    it('should be able to attach event handlers', () => {
+    it('should attach event listeners', () => {
         /* Arrange */
         const rootElement = document.createElement('div');
 
@@ -52,16 +50,14 @@ describe('render', () => {
         };
 
         /* Act */
-        createRoot(rootElement, <App />, {
-            isTestEnv: true,
-        });
+        createRoot(rootElement, <App />);
         rootElement.firstChild?.dispatchEvent(new Event('click'));
 
         /* Assert */
         expect(isClicked).toBe(true);
     });
 
-    it('should be able to re-render when state changes', () => {
+    it('should re-render when state changes', () => {
         /* Arrange */
         const rootElement = document.createElement('div');
 
@@ -71,9 +67,7 @@ describe('render', () => {
         };
 
         /* Act */
-        createRoot(rootElement, <App />, {
-            isTestEnv: true,
-        });
+        createRoot(rootElement, <App />);
         rootElement.firstChild?.dispatchEvent(new Event('click'));
         rootElement.firstChild?.dispatchEvent(new Event('click'));
         rootElement.firstChild?.dispatchEvent(new Event('click'));
@@ -106,9 +100,7 @@ describe('render', () => {
         };
 
         /* Act */
-        createRoot(rootElement, <App />, {
-            isTestEnv: true,
-        });
+        createRoot(rootElement, <App />);
         rootElement.firstChild?.firstChild?.dispatchEvent(new Event('click'));
 
         /* Assert */
