@@ -104,17 +104,11 @@ const App = () => {
             <Card title="Counter">
                 <p>Count: {count} </p>
                 <div className="flex">
-                    <div>
-                        <div>TEst</div>
-                        <div>TEst2</div>
-                        <div>TEst3</div>
-                    </div>
                     <button style="margin-right:10px;" onClick={() => setCount((prev) => ++prev)}>
                         Up 👆
                     </button>
                     <button onClick={() => setCount((prev) => Math.max(--prev, 0))}>Down 👇</button>
                 </div>
-                Test
             </Card>
             <TimerCard />
             <Card title="Inputs">
