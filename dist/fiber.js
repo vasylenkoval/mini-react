@@ -25,7 +25,7 @@ let currentRoot;
 let deletions = [];
 let effectsToRun = [];
 let effectCleanupsToRun = [];
-let isTestEnv = true || (globalThis.process && globalThis.process.env.NODE_ENV === 'test');
+let isTestEnv = globalThis.process && globalThis.process.env.NODE_ENV === 'test';
 let scheduler = isTestEnv
     ? function mockTestRequestIdleCallback(callback) {
         callback({ timeRemaining: () => 100, didTimeout: false });
@@ -55,7 +55,12 @@ export function createRoot(root, element) {
  * @param fiber - The component element to re-render.
  */
 export function renderComponent(fiber) {
-    wipRoot = { ...fiber, alternate: fiber, version: fiber.version + 1 };
+    wipRoot = {
+        ...fiber,
+        alternate: fiber,
+        effectTag: EffectTag.update,
+        version: fiber.version + 1,
+    };
     nextUnitOfWork = wipRoot;
     if (isTestEnv) {
         scheduler(workloop);
@@ -97,7 +102,6 @@ function commitRoot() {
         }
     }
     wipRoot = undefined;
-    console.log('Commited new root', currentRoot);
     // Running effects in the reverse order. Leaf fibers run their effects first.
     for (let i = effectCleanupsToRun.length - 1; i >= 0; i--) {
         effectCleanupsToRun[i]();
@@ -131,8 +135,8 @@ function commitWork(fiber) {
                 const child = fiber.dom;
                 // When mounting to root or new subtree parent, nodes will be attached at once
                 const isParentRoot = parentWithDom.type === APP_ROOT;
-                const isNewSubtree = parentWithDom.effectTag === EffectTag.add &&
-                    parentWithDom.parent?.effectTag === EffectTag.update;
+                const isNewSubtree = fiber.effectTag === EffectTag.add &&
+                    parentWithDom?.effectTag === EffectTag.update;
                 if (isParentRoot || isNewSubtree) {
                     runAfterCommit.push(() => DOM.appendChild(parent, child));
                 }

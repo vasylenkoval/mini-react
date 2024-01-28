@@ -25,11 +25,6 @@ type EventListener = EventListenerOrEventListenerObject;
  * @param prevProps - Previously applied props.
  */
 export function addProps(dom: Node, props: Props, prevProps?: Props) {
-    (dom as any).__listeners = [...((dom as any).__listeners || [])];
-    const addListener = (name: string, fn: any) => (dom as any).__listeners.push([name, fn]);
-    const removeListener = (fn: any) =>
-        (dom as any).__listeners.splice((dom as any).__listeners.indexOf(fn), 1);
-
     if (prevProps) {
         // Resets props that are completely removed.
         for (let propToReset in prevProps) {
@@ -44,7 +39,6 @@ export function addProps(dom: Node, props: Props, prevProps?: Props) {
                     getEventName(propToReset),
                     prevProps[propToReset] as EventListener
                 );
-                removeListener(prevProps[propToReset] as EventListener);
             }
         }
     }
@@ -62,10 +56,8 @@ export function addProps(dom: Node, props: Props, prevProps?: Props) {
             if (prevProps && prevProps[propToAdd]) {
                 // Remove previous listener.
                 dom.removeEventListener(eventName, prevProps[propToAdd] as EventListener);
-                removeListener(prevProps[propToAdd] as EventListener);
             }
             dom.addEventListener(eventName, props[propToAdd] as EventListener);
-            addListener(eventName, props[propToAdd]);
         }
     }
 }

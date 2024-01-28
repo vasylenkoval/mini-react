@@ -1,9 +1,9 @@
 /** @jsx jsx */
 import { createRoot } from '../fiber';
 import { useState } from '../hooks';
-import { jsx } from '../jsx';
+import { jsx, Element } from '../jsx';
 
-describe('render', () => {
+describe('fiber', () => {
     it('should render a simple app', () => {
         /* Arrange */
         const rootElement = document.createElement('div');
@@ -101,11 +101,62 @@ describe('render', () => {
 
         /* Act */
         createRoot(rootElement, <App />);
-        rootElement.firstChild?.firstChild?.dispatchEvent(new Event('click'));
+        rootElement.firstChild!.firstChild!.dispatchEvent(new Event('click'));
 
         /* Assert */
         expect(parentRenderCount).toBe(1);
         expect(nestedRenderCount).toBe(2);
         expect(rootElement.innerHTML).toBe('<div><div>1</div></div>');
+    });
+
+    it('children can be passed as props and rendered conditionally', () => {
+        /* Arrange */
+        const rootElement = document.createElement('div');
+
+        const WithChildren = ({
+            id,
+            title,
+            children,
+        }: {
+            id: string;
+            title: string;
+            children?: Element[];
+        }) => {
+            const [showChildren, setShowChildren] = useState(true);
+            return (
+                <div id={id} onClick={() => setShowChildren((state) => !state)}>
+                    <div>{title}</div>
+                    {showChildren && children}
+                </div>
+            );
+        };
+
+        const App = () => {
+            return (
+                <div>
+                    <WithChildren title="Children block 1" id="children">
+                        <div>
+                            <div>Child 1</div>
+                            <div>Child 2</div>
+                        </div>
+                    </WithChildren>
+                </div>
+            );
+        };
+
+        /* Act / Assert */
+        createRoot(rootElement, <App />);
+
+        const childrenShowingHtml =
+            '<div><div id="children"><div>Children block 1</div><div><div>Child 1</div><div>Child 2</div></div></div></div>';
+
+        const childrenHiddenHtml =
+            '<div><div id="children"><div>Children block 1</div></div></div>';
+
+        expect(rootElement.innerHTML).toBe(childrenShowingHtml);
+        rootElement.querySelector('#children')!.dispatchEvent(new Event('click'));
+        expect(rootElement.innerHTML).toBe(childrenHiddenHtml);
+        rootElement.querySelector('#children')!.dispatchEvent(new Event('click'));
+        expect(rootElement.innerHTML).toBe(childrenShowingHtml);
     });
 });

@@ -5,47 +5,47 @@ import { useState, useEffect } from '../hooks.js';
 const root = document.getElementById('root');
 const style = document.createElement('style');
 style.textContent = `
-  .title {
-    color: #535bf2;
-  }
+    .title {
+        color: #535bf2;
+    }
 
-  .app {
-    padding: 20px;
-  }
+    .app {
+        padding: 20px;
+    }
 
-  .card {
-    border: 1px solid rgba(82, 82, 89, .32);
-    transition: border 0.1s;
-    border-radius: 4px;
-    padding: 0 20px 20px 20px;
-    margin-bottom: 20px;
-  }
+    .card {
+        border: 1px solid rgba(82, 82, 89, 0.32);
+        transition: border 0.1s;
+        border-radius: 4px;
+        padding: 0 20px 20px 20px;
+        margin-bottom: 20px;
+    }
 
-  .card:hover {
-    border: 1px solid #535bf2;
-  }
+    .card:hover {
+        border: 1px solid #535bf2;
+    }
 
-  .card__title {
-    cursor: pointer;
-    font-size: 18px;
-    font-weight: bold;
-    border-bottom: 1px solid rgba(82, 82, 89, .24);
-    padding: 10px;
-    margin-bottom: 10px;
-  }
+    .card__title {
+        cursor: pointer;
+        font-size: 18px;
+        font-weight: bold;
+        border-bottom: 1px solid rgba(82, 82, 89, 0.24);
+        padding: 10px;
+        margin-bottom: 10px;
+    }
 
-  .card__title__arrow {
-    transition: transform 0.2s;
-    transform: rotate(0);
-  }
+    .card__title__arrow {
+        transition: transform 0.2s;
+        transform: rotate(0);
+    }
 
-  .card__title__arrow--up {
-    transform: rotate(180deg);
-  }
+    .card__title__arrow--up {
+        transform: rotate(180deg);
+    }
 
-  .card__body {
-    padding: 0 10px;
-  }
+    .card__body {
+        padding: 0 10px;
+    }
 `;
 document.head.appendChild(style);
 const Card = ({ children, title }) => {
@@ -87,8 +87,13 @@ const App = () => {
                 count,
                 " "),
             jsx("div", { className: "flex" },
+                jsx("div", null,
+                    jsx("div", null, "TEst"),
+                    jsx("div", null, "TEst2"),
+                    jsx("div", null, "TEst3")),
                 jsx("button", { style: "margin-right:10px;", onClick: () => setCount((prev) => ++prev) }, "Up \uD83D\uDC46"),
-                jsx("button", { onClick: () => setCount((prev) => Math.max(--prev, 0)) }, "Down \uD83D\uDC47"))),
+                jsx("button", { onClick: () => setCount((prev) => Math.max(--prev, 0)) }, "Down \uD83D\uDC47")),
+            "Test"),
         jsx(TimerCard, null),
         jsx(Card, { title: "Inputs" },
             jsx("div", null,
