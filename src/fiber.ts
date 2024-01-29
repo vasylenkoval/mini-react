@@ -196,13 +196,14 @@ function commitWork(fiber: Fiber) {
                 const parent = parentWithDom.dom;
                 const child = fiber.dom;
 
-                // When mounting to root or new subtree parent, nodes will be attached at once
+                // Attach the entire tree at once when possible.
+                const noSiblings = !fiber.sibling;
                 const isParentRoot = parentWithDom.type === APP_ROOT;
                 const isNewSubtree =
                     fiber.effectTag === EffectTag.add &&
                     parentWithDom?.effectTag === EffectTag.update;
 
-                if (isParentRoot || isNewSubtree) {
+                if ((isParentRoot || isNewSubtree) && noSiblings) {
                     runAfterCommit.push(() => DOM.appendChild(parent, child));
                 } else {
                     DOM.appendChild(parent, child);
@@ -352,6 +353,7 @@ function diffChildren(wipFiberParent: Fiber, elements: Element[] = []) {
     let oldFiber = wipFiberParent.alternate && wipFiberParent.alternate.child;
     let prevSibling: MaybeFiber;
     let index = 0;
+
     while (index < elements.length || oldFiber) {
         let newFiber: MaybeFiber;
         const childElement = elements[index] as Element | undefined;
@@ -377,7 +379,7 @@ function diffChildren(wipFiberParent: Fiber, elements: Element[] = []) {
         }
 
         // Brand new node.
-        if (!oldFiber && childElement) {
+        if (!isSame && childElement) {
             newFiber = {
                 effectTag: EffectTag.add,
                 type: childElement.type,

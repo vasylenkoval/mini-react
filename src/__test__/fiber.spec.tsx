@@ -109,24 +109,27 @@ describe('fiber', () => {
         expect(rootElement.innerHTML).toBe('<div><div>1</div></div>');
     });
 
-    it('children can be passed as props and rendered conditionally', () => {
+    it('children can be passed as props and rendered conditionally within other components', () => {
         /* Arrange */
         const rootElement = document.createElement('div');
 
         const WithChildren = ({
             id,
-            title,
+            start,
             children,
+            end,
         }: {
             id: string;
-            title: string;
+            start: string;
             children?: Element[];
+            end: string;
         }) => {
             const [showChildren, setShowChildren] = useState(true);
             return (
                 <div id={id} onClick={() => setShowChildren((state) => !state)}>
-                    <div>{title}</div>
+                    <div>{start}</div>
                     {showChildren && children}
+                    <div>{end}</div>
                 </div>
             );
         };
@@ -134,11 +137,15 @@ describe('fiber', () => {
         const App = () => {
             return (
                 <div>
-                    <WithChildren title="Children block 1" id="children">
-                        <div>
+                    <WithChildren start="groupedStart" end="groupedEnd" id="grouped">
+                        <div id="groupedInner">
                             <div>Child 1</div>
                             <div>Child 2</div>
                         </div>
+                    </WithChildren>
+                    <WithChildren start="flatStart" end="flatEnd" id="flat">
+                        <div>Child 3</div>
+                        <div>Child 4</div>
                     </WithChildren>
                 </div>
             );
@@ -148,15 +155,19 @@ describe('fiber', () => {
         createRoot(rootElement, <App />);
 
         const childrenShowingHtml =
-            '<div><div id="children"><div>Children block 1</div><div><div>Child 1</div><div>Child 2</div></div></div></div>';
+            '<div><div id="grouped"><div>groupedStart</div><div id="groupedInner"><div>Child 1</div><div>Child 2</div></div><div>groupedEnd</div></div><div id="flat"><div>flatStart</div><div>Child 3</div><div>Child 4</div><div>flatEnd</div></div></div>';
 
         const childrenHiddenHtml =
-            '<div><div id="children"><div>Children block 1</div></div></div>';
+            '<div><div id="grouped"><div>groupedStart</div><div>groupedEnd</div></div><div id="flat"><div>flatStart</div><div>flatEnd</div></div></div>';
 
         expect(rootElement.innerHTML).toBe(childrenShowingHtml);
-        rootElement.querySelector('#children')!.dispatchEvent(new Event('click'));
+        rootElement.querySelector('#grouped')!.dispatchEvent(new Event('click'));
+        rootElement.querySelector('#flat')!.dispatchEvent(new Event('click'));
+
         expect(rootElement.innerHTML).toBe(childrenHiddenHtml);
-        rootElement.querySelector('#children')!.dispatchEvent(new Event('click'));
+        rootElement.querySelector('#grouped')!.dispatchEvent(new Event('click'));
+        rootElement.querySelector('#flat')!.dispatchEvent(new Event('click'));
+
         expect(rootElement.innerHTML).toBe(childrenShowingHtml);
     });
 });

@@ -2,24 +2,30 @@ import { TEXT_ELEMENT } from './jsx.js';
 /**
  * Creates a DOM node for a given type.
  * @param type - DOM tag or "TEXT".
- * @return DOM node.
+ * @return DOM Node.
  */
 export function createNode(type) {
     return type === TEXT_ELEMENT ? document.createTextNode('') : document.createElement(type);
 }
-const STYLE_PROP = 'style';
 const CHILDREN_PROP = 'children';
 const FUNCTION_PREFIX = 'on';
 const isEvent = (propName) => propName.startsWith(FUNCTION_PREFIX);
 const isProp = (propName) => propName !== CHILDREN_PROP && !isEvent(propName);
 const getEventName = (propName) => propName.toLowerCase().substring(2);
+const getPropName = (propName) => (propName === 'className' ? 'class' : propName);
 /**
  * Adds given properties to a DOM node. Reconciles new props with previous props if provided.
  * @param dom - DOM node to add props to.
  * @param props -  Props to add.
  * @param prevProps - Previously applied props.
  */
-export function addProps(dom, props, prevProps) {
+export function addProps(node, props, prevProps) {
+    // https://developer.mozilla.org/en-US/docs/Web/API/Node/nodeType#node.text_node
+    if (node.nodeType === 3 && node.nodeValue !== props.nodeValue) {
+        node.nodeValue = props.nodeValue;
+        return;
+    }
+    const element = node;
     if (prevProps) {
         // Resets props that are completely removed.
         for (let propToReset in prevProps) {
@@ -27,11 +33,10 @@ export function addProps(dom, props, prevProps) {
                 continue;
             }
             if (isProp(propToReset)) {
-                // @ts-expect-error
-                dom[propToReset] = '';
+                element.removeAttribute(getPropName(propToReset));
             }
             else if (isEvent(propToReset)) {
-                dom.removeEventListener(getEventName(propToReset), prevProps[propToReset]);
+                element.removeEventListener(getEventName(propToReset), prevProps[propToReset]);
             }
         }
     }
@@ -40,17 +45,16 @@ export function addProps(dom, props, prevProps) {
         if (prevProps && props[propToAdd] === prevProps[propToAdd]) {
             continue;
         }
-        if (isProp(propToAdd)) {
-            // @ts-expect-error
-            dom[propToAdd] = props[propToAdd];
+        const value = props[propToAdd];
+        if (isProp(propToAdd) && typeof value === 'string') {
+            element.setAttribute(getPropName(propToAdd), value);
         }
         else if (isEvent(propToAdd)) {
             const eventName = getEventName(propToAdd);
             if (prevProps && prevProps[propToAdd]) {
-                // Remove previous listener.
-                dom.removeEventListener(eventName, prevProps[propToAdd]);
+                element.removeEventListener(eventName, prevProps[propToAdd]);
             }
-            dom.addEventListener(eventName, props[propToAdd]);
+            element.addEventListener(eventName, props[propToAdd]);
         }
     }
 }
