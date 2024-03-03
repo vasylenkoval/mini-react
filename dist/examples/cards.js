@@ -66,12 +66,15 @@ const TimerCard = () => {
             clearInterval(timerId);
         };
     }, [isStopped]);
+    const handleTimerToggle = () => {
+        setIsStopped((isStopped) => !isStopped);
+    };
     return (jsx(Card, { title: "Timer" },
         jsx("div", { className: "flex" },
             jsx("p", null,
                 "Timer: ",
                 (timer / 1000).toFixed(1)),
-            jsx("button", { style: "margin-right:10px;", onClick: () => setIsStopped((isStopped) => !isStopped) },
+            jsx("button", { style: "margin-right:10px;", onClick: handleTimerToggle },
                 isStopped ? 'Start timer' : 'Stop timer',
                 " \u23F1"))));
 };
@@ -79,6 +82,14 @@ const App = () => {
     const [name, setName] = useState('John Doe');
     const [age, setAge] = useState(33);
     const [count, setCount] = useState(0);
+    const countUp = () => {
+        setCount((prev) => {
+            setCount((prev) => {
+                return ++prev;
+            });
+            return ++prev;
+        });
+    };
     return (jsx("div", { className: "app" },
         jsx("h1", { className: "title" }, "Mini-React \u269B\uFE0F"),
         jsx(Card, { title: "Counter" },
@@ -87,7 +98,7 @@ const App = () => {
                 count,
                 " "),
             jsx("div", { className: "flex" },
-                jsx("button", { style: "margin-right:10px;", onClick: () => setCount((prev) => ++prev) }, "Up \uD83D\uDC46"),
+                jsx("button", { style: "margin-right:10px;", onClick: countUp }, "Up \uD83D\uDC46"),
                 jsx("button", { onClick: () => setCount((prev) => Math.max(--prev, 0)) }, "Down \uD83D\uDC47"))),
         jsx(TimerCard, null),
         jsx(Card, { title: "Inputs" },

@@ -24,12 +24,11 @@ let hookIndex = -1;
  * @param scheduleEffect - Callback for when the effect needs to be scheduled.
  */
 export function processHooks(hooks, notifyOnStateChange, scheduleEffect) {
-    // Flush state queues.
+    // Flush state updates
     for (const hook of hooks) {
-        if ('queue' in hook) {
-            for (const action of hook.queue)
-                action();
-            hook.queue.splice(0);
+        if (hook.type === HookTypes.state && hook.next) {
+            hook.value = hook.next.value;
+            hook.next = undefined;
         }
     }
     current.hooks = hooks;
@@ -53,22 +52,14 @@ export function useState(initState) {
         type: HookTypes.state,
         notify: current.notifyOnStateChange,
         value: typeof initState === 'function' ? initState() : initState,
-        queue: [],
         setter(value) {
-            let newValue;
-            // @TODO: call the function in the queue instead
-            if (typeof value === 'function') {
-                newValue = value(hook.value);
-            }
-            else {
-                newValue = value;
-            }
-            if (newValue !== hook.value) {
-                hook.queue.push(() => {
-                    hook.value = newValue;
-                });
-                hook.notify();
-            }
+            let lastValue = hook.next ? hook.next.value : hook.value;
+            let setterFn = typeof value === 'function' ? value : undefined;
+            let nextValue = setterFn ? setterFn(lastValue) : value;
+            if (nextValue === lastValue)
+                return;
+            hook.next = { value: nextValue };
+            hook.notify();
         },
     };
     current.hooks.push(hook);

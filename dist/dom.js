@@ -21,8 +21,10 @@ const getPropName = (propName) => (propName === 'className' ? 'class' : propName
  */
 export function addProps(node, props, prevProps) {
     // https://developer.mozilla.org/en-US/docs/Web/API/Node/nodeType#node.text_node
-    if (node.nodeType === 3 && node.nodeValue !== props.nodeValue) {
-        node.nodeValue = props.nodeValue;
+    if (node.nodeType === 3) {
+        if (node.nodeValue !== props.nodeValue) {
+            node.nodeValue = props.nodeValue;
+        }
         return;
     }
     const element = node;
@@ -40,7 +42,7 @@ export function addProps(node, props, prevProps) {
             }
         }
     }
-    // Add new props, compares to previous and updates if not equal
+    // Add new props, compare to previous and update only if not equal
     for (let propToAdd in props) {
         if (prevProps && props[propToAdd] === prevProps[propToAdd]) {
             continue;

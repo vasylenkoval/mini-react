@@ -1,6 +1,6 @@
 /** @jsx jsx */
 import { createRoot } from '../fiber';
-import { useState } from '../hooks';
+import { useMemo, useState } from '../hooks';
 import { jsx, Element } from '../jsx';
 
 describe('fiber', () => {
@@ -40,9 +40,9 @@ describe('fiber', () => {
         /* Arrange */
         const rootElement = document.createElement('div');
 
-        let isClicked = false;
+        let clickCount = 0;
         const handleClick = () => {
-            isClicked = true;
+            clickCount++;
         };
 
         const App = () => {
@@ -52,9 +52,11 @@ describe('fiber', () => {
         /* Act */
         createRoot(rootElement, <App />);
         rootElement.firstChild?.dispatchEvent(new Event('click'));
+        rootElement.firstChild?.dispatchEvent(new Event('click'));
+        rootElement.firstChild?.dispatchEvent(new Event('click'));
 
         /* Assert */
-        expect(isClicked).toBe(true);
+        expect(clickCount).toBe(3);
     });
 
     it('should re-render when state changes', () => {
@@ -169,5 +171,30 @@ describe('fiber', () => {
         rootElement.querySelector('#flat')!.dispatchEvent(new Event('click'));
 
         expect(rootElement.innerHTML).toBe(childrenShowingHtml);
+    });
+
+    it('should not re-render children if their elements are equal between renders', () => {
+        /* Arrange */
+        const rootElement = document.createElement('div');
+
+        let childRenders = 0;
+        const Child = () => {
+            childRenders++;
+            return <div>child</div>;
+        };
+
+        let setCount: (value: number | ((prev: number) => number)) => void | undefined;
+        const Parent = () => {
+            [, setCount] = useState(0);
+            const cachedChild = useMemo(() => <Child />, []);
+            return <div>{cachedChild}</div>;
+        };
+
+        /* Act */
+        createRoot(rootElement, <Parent />);
+        setCount!((count) => count + 1);
+        setCount!((count) => count + 1);
+
+        expect(childRenders).toEqual(1);
     });
 });

@@ -51,7 +51,7 @@ export function addProps(node: Node, props: Props, prevProps?: Props) {
         }
     }
 
-    // Add new props, compares to previous and updates if not equal
+    // Add new props, compare to previous and update only if not equal
     for (let propToAdd in props) {
         if (prevProps && props[propToAdd] === prevProps[propToAdd]) {
             continue;

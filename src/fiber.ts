@@ -22,11 +22,11 @@ enum EffectTag {
 
 const APP_ROOT = 'root' as const;
 
-type Fiber = {
+type Fiber<T extends string | FC = string | FC> = {
     /**
      * A string if it's a DOM node, a function if it's a component.
      */
-    type: string | FC;
+    type: T;
     /**
      * The parent fiber.
      */
@@ -40,11 +40,20 @@ type Fiber = {
      */
     sibling?: Fiber;
     /**
-     * The alternate fiber. Used to compare old and new trees.
+     * The alternate fiber. Used to compare old and new trees. Contains a reference to the
+     * old fiber that was replaced.
      */
     alternate?: Fiber;
     /**
-     * The dom node of the fiber. Only set for DOM non-component fibers.
+     * When TRUE indicates that the fiber is an alternate of some other fiber.
+     */
+    isAlternate?: boolean;
+    /**
+     * When TRUE indicates that the fiber work is done.
+     */
+    isDone: boolean;
+    /**
+     * The dom node of the fiber. Only set for DOM (non-component) fibers.
      */
     dom?: Node;
     /**
@@ -64,14 +73,20 @@ type Fiber = {
      */
     version: number;
     /**
-     * The computed children of the fiber. Set if the fiber is a component.
+     * Same as props.children for dom nodes, computed from render for component nodes.
      */
-    computedChildElements?: Element[];
+    childElements?: Element[];
+
+    /**
+     * Reference to the element that created this fiber.
+     */
+    fromElement: Element;
 };
 
 type MaybeFiber = Fiber | undefined;
 
 let nextUnitOfWork: MaybeFiber;
+let componentRenderQueue: Fiber[] = [];
 let wipRoot: MaybeFiber;
 let currentRoot: MaybeFiber;
 let deletions: Fiber[] = [];
@@ -96,6 +111,8 @@ export function createRoot(root: Node, element: Element) {
         type: APP_ROOT,
         dom: root,
         version: 0,
+        fromElement: element,
+        isDone: false,
         props: {
             children: [element],
         },
@@ -105,19 +122,15 @@ export function createRoot(root: Node, element: Element) {
 }
 
 /**
- * Re-renders starting from the given component.
+ * Schedules a component to be re-rendered.
  * @param fiber - The component element to re-render.
  */
-export function renderComponent(fiber: Fiber) {
-    wipRoot = {
-        ...fiber,
-        alternate: fiber,
-        effectTag: EffectTag.update,
-        version: fiber.version + 1,
-    };
-    nextUnitOfWork = wipRoot;
-    if (isTestEnv) {
-        scheduler(workloop);
+function addToComponentRenderQueue(fiber: Fiber) {
+    if (!componentRenderQueue.includes(fiber)) {
+        componentRenderQueue.push(fiber);
+        if (isTestEnv) {
+            scheduler(workloop);
+        }
     }
 }
 
@@ -204,6 +217,8 @@ function commitWork(fiber: Fiber) {
                     parentWithDom?.effectTag === EffectTag.update;
 
                 if ((isParentRoot || isNewSubtree) && noSiblings) {
+                    // @TODO: do the check one level down, and use prepend instead?
+                    // remove runAfterCommit array as only 1 operation is possible after a commit.
                     runAfterCommit.push(() => DOM.appendChild(parent, child));
                 } else {
                     DOM.appendChild(parent, child);
@@ -260,6 +275,30 @@ function commitWork(fiber: Fiber) {
 }
 
 /**
+ * Picks the next component to render from the render queue.
+ * @returns The next component to render.
+ */
+function pickNextComponentToRender(): MaybeFiber {
+    if (!componentRenderQueue.length) {
+        return;
+    }
+    const componentFiber = componentRenderQueue.shift()!;
+
+    // If the component already re-rendered since it was queued we can skip the update.
+    if (componentFiber.isAlternate) {
+        return pickNextComponentToRender();
+    }
+
+    return {
+        ...componentFiber,
+        alternate: componentFiber,
+        effectTag: EffectTag.update,
+        version: componentFiber.version + 1,
+        isDone: false,
+    };
+}
+
+/**
  * The main work loop. Picks up items from the render queue.
  * @param deadline - The deadline for the current idle period.
  */
@@ -274,6 +313,15 @@ function workloop(deadline: IdleDeadline) {
         commitRoot();
     }
 
+    // Pick next components to render.
+    const nextComponent = pickNextComponentToRender();
+    if (nextComponent) {
+        wipRoot = nextComponent;
+        nextUnitOfWork = wipRoot;
+        scheduler(workloop);
+        return;
+    }
+
     // Loop won't run continuously in test env.
     if (isTestEnv && !wipRoot) {
         return;
@@ -282,7 +330,11 @@ function workloop(deadline: IdleDeadline) {
     scheduler(workloop);
 }
 
-function updateComponent(fiber: Fiber) {
+/**
+ * Runs the component function, processes hooks and schedules effects.
+ * @param fiber - The component fiber to process.
+ */
+function processComponentFiber(fiber: Fiber<FC>) {
     if (!fiber.hooks) {
         fiber.hooks = [];
     }
@@ -290,7 +342,7 @@ function updateComponent(fiber: Fiber) {
     processHooks(
         fiber.hooks,
         function notifyOnStateChange() {
-            renderComponent(fiber);
+            addToComponentRenderQueue(fiber);
         },
         function scheduleEffect(effect: EffectFunc, cleanup?: CleanupFunc) {
             effectsToRun.push(effect);
@@ -300,8 +352,19 @@ function updateComponent(fiber: Fiber) {
         }
     );
 
-    const element = (fiber.type as FC)(fiber.props);
-    fiber.computedChildElements = [element];
+    const element = fiber.type(fiber.props);
+    fiber.childElements = [element];
+}
+
+/**
+ * Processes dom fiber node before diffing children.
+ * @param fiber - The dom fiber to process.
+ */
+function processDomFiber(fiber: Fiber<string>) {
+    if (!fiber.dom) {
+        fiber.dom = DOM.createNode(fiber.type as string);
+    }
+    fiber.childElements = fiber.props.children;
 }
 
 /**
@@ -310,12 +373,14 @@ function updateComponent(fiber: Fiber) {
  * @returns Next unit of work or undefined if no work is left.
  */
 function performUnitOfWork(fiber: Fiber): MaybeFiber {
-    if (typeof fiber.type === 'function') {
-        updateComponent(fiber);
-    } else if (!fiber.dom) {
-        fiber.dom = DOM.createNode(fiber.type);
+    if (typeof fiber.type === 'string') {
+        processDomFiber(fiber as Fiber<string>);
     }
-    diffChildren(fiber, fiber.computedChildElements || fiber.props.children);
+    if (typeof fiber.type === 'function') {
+        processComponentFiber(fiber as Fiber<FC>);
+    }
+    diffChildren(fiber, fiber.childElements);
+    fiber.isDone = true;
     return nextFiber(fiber, wipRoot);
 }
 
@@ -327,20 +392,19 @@ function performUnitOfWork(fiber: Fiber): MaybeFiber {
  */
 function nextFiber(currFiber: Fiber, root?: Fiber): MaybeFiber {
     // Visit up to the last child first.
-    if (currFiber.child) {
+    if (currFiber.child && !currFiber.child.isDone) {
         return currFiber.child;
     }
-
     let nextFiber: MaybeFiber = currFiber;
     while (nextFiber && nextFiber !== root) {
-        // Exhaust all siblings.
-        if (nextFiber.sibling) {
-            return nextFiber.sibling;
+        if (nextFiber.sibling && !nextFiber.sibling.isDone) {
+            return nextFiber.sibling; // Exhaust all siblings.
+        } else if (nextFiber.sibling && nextFiber.sibling.isDone) {
+            nextFiber = nextFiber.sibling; // If next sibling is done, skip it.
+        } else {
+            nextFiber = nextFiber.parent; // Go up the tree until we reach the root or undefined.
         }
-        // Go up the tree until we reach the root or undefined
-        nextFiber = nextFiber.parent;
     }
-
     return;
 }
 
@@ -357,15 +421,21 @@ function diffChildren(wipFiberParent: Fiber, elements: Element[] = []) {
     while (index < elements.length || oldFiber) {
         let newFiber: MaybeFiber;
         const childElement = elements[index] as Element | undefined;
-        const isSame = oldFiber?.type === childElement?.type;
+
+        const isSameType = oldFiber?.type === childElement?.type;
+        const isSameElement = childElement === oldFiber?.fromElement;
+        if (isSameElement) {
+            newFiber = oldFiber;
+        }
 
         // Only store 2 levels.
-        if (oldFiber) {
+        if (oldFiber && !isSameElement) {
             oldFiber.alternate = undefined;
+            oldFiber.isAlternate = true;
         }
 
         // Same node, update props.
-        if (oldFiber && childElement && isSame) {
+        if (!isSameElement && oldFiber && childElement && isSameType) {
             newFiber = {
                 effectTag: EffectTag.update,
                 type: childElement.type,
@@ -375,22 +445,26 @@ function diffChildren(wipFiberParent: Fiber, elements: Element[] = []) {
                 hooks: oldFiber.hooks,
                 dom: oldFiber.dom,
                 version: oldFiber.version + 1,
+                fromElement: childElement,
+                isDone: false,
             };
         }
 
         // Brand new node.
-        if (!isSame && childElement) {
+        if (!isSameType && childElement) {
             newFiber = {
                 effectTag: EffectTag.add,
                 type: childElement.type,
                 props: childElement.props,
                 parent: wipFiberParent,
                 version: 0,
+                fromElement: childElement,
+                isDone: false,
             };
         }
 
         // Delete old node.
-        if (oldFiber && !isSame) {
+        if (oldFiber && !isSameType) {
             oldFiber.effectTag = EffectTag.delete;
             deletions.push(oldFiber);
         }

@@ -8,8 +8,8 @@ export type StateHook<T> = {
     type: HookTypes.state;
     notify: () => void;
     value: T;
+    next?: { value: T };
     setter: (value: T | ((prev: T) => T)) => void;
-    queue: (() => void)[];
 };
 
 export type EffectHook = {
@@ -58,11 +58,11 @@ export function processHooks(
     notifyOnStateChange: typeof current.notifyOnStateChange,
     scheduleEffect: typeof current.scheduleEffect
 ) {
-    // Flush state queues.
+    // Flush state updates
     for (const hook of hooks) {
-        if ('queue' in hook) {
-            for (const action of hook.queue) action();
-            hook.queue.splice(0);
+        if (hook.type === HookTypes.state && hook.next) {
+            hook.value = hook.next.value;
+            hook.next = undefined;
         }
     }
     current.hooks = hooks;
@@ -90,22 +90,13 @@ export function useState<T>(
         type: HookTypes.state,
         notify: current.notifyOnStateChange,
         value: typeof initState === 'function' ? (initState as () => T)() : initState,
-        queue: [] as (() => void)[],
         setter(value) {
-            let newValue: T;
-            // @TODO: call the function in the queue instead
-            if (typeof value === 'function') {
-                newValue = (value as (prev: T) => T)(hook.value);
-            } else {
-                newValue = value;
-            }
-
-            if (newValue !== hook.value) {
-                hook.queue.push(() => {
-                    hook.value = newValue;
-                });
-                hook.notify();
-            }
+            let lastValue = hook.next ? hook.next.value : hook.value;
+            let setterFn = typeof value === 'function' ? (value as (prev: T) => T) : undefined;
+            let nextValue = setterFn ? setterFn(lastValue) : (value as T);
+            if (nextValue === lastValue) return;
+            hook.next = { value: nextValue };
+            hook.notify();
         },
     };
 

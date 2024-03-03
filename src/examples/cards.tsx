@@ -78,14 +78,15 @@ const TimerCard = () => {
         };
     }, [isStopped]);
 
+    const handleTimerToggle = () => {
+        setIsStopped((isStopped) => !isStopped);
+    };
+
     return (
         <Card title="Timer">
             <div className="flex">
                 <p>Timer: {(timer / 1000).toFixed(1)}</p>
-                <button
-                    style="margin-right:10px;"
-                    onClick={() => setIsStopped((isStopped) => !isStopped)}
-                >
+                <button style="margin-right:10px;" onClick={handleTimerToggle}>
                     {isStopped ? 'Start timer' : 'Stop timer'} ⏱
                 </button>
             </div>
@@ -98,13 +99,22 @@ const App = () => {
     const [age, setAge] = useState(33);
     const [count, setCount] = useState(0);
 
+    const countUp = () => {
+        setCount((prev) => {
+            setCount((prev) => {
+                return ++prev;
+            });
+            return ++prev;
+        });
+    };
+
     return (
         <div className="app">
             <h1 className="title">Mini-React ⚛️</h1>
             <Card title="Counter">
                 <p>Count: {count} </p>
                 <div className="flex">
-                    <button style="margin-right:10px;" onClick={() => setCount((prev) => ++prev)}>
+                    <button style="margin-right:10px;" onClick={countUp}>
                         Up 👆
                     </button>
                     <button onClick={() => setCount((prev) => Math.max(--prev, 0))}>Down 👇</button>
