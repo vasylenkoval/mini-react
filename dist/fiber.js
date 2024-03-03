@@ -1,5 +1,6 @@
 import DOM from './dom.js';
 import { processHooks, collectEffectCleanups } from './hooks.js';
+import { schedule } from './scheduler.js';
 /**
  * Effect tags used to determine what to do with the fiber after a render.
  */
@@ -26,13 +27,6 @@ let currentRoot;
 let deletions = [];
 let effectsToRun = [];
 let effectCleanupsToRun = [];
-let isTestEnv = globalThis.process && globalThis.process.env.NODE_ENV === 'test';
-let scheduler = isTestEnv
-    ? function mockTestRequestIdleCallback(callback) {
-        callback({ timeRemaining: () => 100, didTimeout: false });
-        return 0;
-    }
-    : window.requestIdleCallback;
 /**
  * Creates app root and kicks off the first render.
  * @param root - The topmost DOM node to attach elements to.
@@ -51,7 +45,7 @@ export function createRoot(root, element) {
         },
     };
     nextUnitOfWork = wipRoot;
-    scheduler(workloop);
+    schedule(workloop);
 }
 /**
  * Schedules a component to be re-rendered.
@@ -60,9 +54,7 @@ export function createRoot(root, element) {
 function addToComponentRenderQueue(fiber) {
     if (!componentRenderQueue.includes(fiber)) {
         componentRenderQueue.push(fiber);
-        if (isTestEnv) {
-            scheduler(workloop);
-        }
+        schedule(workloop);
     }
 }
 /**
@@ -213,13 +205,13 @@ function pickNextComponentToRender() {
 }
 /**
  * The main work loop. Picks up items from the render queue.
- * @param deadline - The deadline for the current idle period.
+ * @param timeRemaining - Function that returns the remaining time this loop has to run.
  */
-function workloop(deadline) {
+function workloop(remainingMs) {
     let shouldWait = false;
     while (nextUnitOfWork && !shouldWait) {
         nextUnitOfWork = performUnitOfWork(nextUnitOfWork);
-        shouldWait = deadline.timeRemaining() < 1;
+        shouldWait = remainingMs() < 1;
     }
     if (!nextUnitOfWork && wipRoot) {
         commitRoot();
@@ -229,14 +221,12 @@ function workloop(deadline) {
     if (nextComponent) {
         wipRoot = nextComponent;
         nextUnitOfWork = wipRoot;
-        scheduler(workloop);
+        schedule(workloop);
         return;
     }
-    // Loop won't run continuously in test env.
-    if (isTestEnv && !wipRoot) {
-        return;
+    if (wipRoot) {
+        schedule(workloop);
     }
-    scheduler(workloop);
 }
 /**
  * Runs the component function, processes hooks and schedules effects.

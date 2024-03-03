@@ -1,6 +1,7 @@
 import { Element, Props, FC } from './jsx.js';
 import DOM from './dom.js';
 import { CleanupFunc, EffectFunc, Hooks, processHooks, collectEffectCleanups } from './hooks.js';
+import { schedule } from './scheduler.js';
 
 /**
  * Effect tags used to determine what to do with the fiber after a render.
@@ -92,13 +93,6 @@ let currentRoot: MaybeFiber;
 let deletions: Fiber[] = [];
 let effectsToRun: EffectFunc[] = [];
 let effectCleanupsToRun: CleanupFunc[] = [];
-let isTestEnv = globalThis.process && globalThis.process.env.NODE_ENV === 'test';
-let scheduler = isTestEnv
-    ? function mockTestRequestIdleCallback(callback: IdleRequestCallback): number {
-          callback({ timeRemaining: () => 100, didTimeout: false });
-          return 0;
-      }
-    : window.requestIdleCallback;
 
 /**
  * Creates app root and kicks off the first render.
@@ -118,7 +112,7 @@ export function createRoot(root: Node, element: Element) {
         },
     };
     nextUnitOfWork = wipRoot;
-    scheduler(workloop);
+    schedule(workloop);
 }
 
 /**
@@ -128,9 +122,7 @@ export function createRoot(root: Node, element: Element) {
 function addToComponentRenderQueue(fiber: Fiber) {
     if (!componentRenderQueue.includes(fiber)) {
         componentRenderQueue.push(fiber);
-        if (isTestEnv) {
-            scheduler(workloop);
-        }
+        schedule(workloop);
     }
 }
 
@@ -300,13 +292,13 @@ function pickNextComponentToRender(): MaybeFiber {
 
 /**
  * The main work loop. Picks up items from the render queue.
- * @param deadline - The deadline for the current idle period.
+ * @param timeRemaining - Function that returns the remaining time this loop has to run.
  */
-function workloop(deadline: IdleDeadline) {
+function workloop(remainingMs: () => number) {
     let shouldWait = false;
     while (nextUnitOfWork && !shouldWait) {
         nextUnitOfWork = performUnitOfWork(nextUnitOfWork);
-        shouldWait = deadline.timeRemaining() < 1;
+        shouldWait = remainingMs() < 1;
     }
 
     if (!nextUnitOfWork && wipRoot) {
@@ -318,16 +310,13 @@ function workloop(deadline: IdleDeadline) {
     if (nextComponent) {
         wipRoot = nextComponent;
         nextUnitOfWork = wipRoot;
-        scheduler(workloop);
+        schedule(workloop);
         return;
     }
 
-    // Loop won't run continuously in test env.
-    if (isTestEnv && !wipRoot) {
-        return;
+    if (wipRoot) {
+        schedule(workloop);
     }
-
-    scheduler(workloop);
 }
 
 /**
