@@ -16,7 +16,6 @@ function prepareChildren(elements, children = []) {
             }
             continue;
         }
-        // @TODO: remove wrapping?
         if (typeof element === 'string' || typeof element === 'number') {
             children.push({
                 type: TEXT_ELEMENT,
@@ -24,7 +23,7 @@ function prepareChildren(elements, children = []) {
             });
         }
     }
-    return children;
+    return children.length ? children : undefined;
 }
 /**
  * Creates a new JSX element with the specified type, props, and children.
@@ -34,7 +33,7 @@ export function jsx(type, props, ...children) {
         type,
         props: {
             ...props,
-            children: props && props.children ? props.children : prepareChildren(children),
+            children: props?.children || prepareChildren(children),
         },
     };
 }

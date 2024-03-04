@@ -8,16 +8,19 @@ declare global {
 }
 export const TEXT_ELEMENT = 'TEXT';
 export type Primitive = undefined | null | string | number | boolean;
-export type Props = { [key: string]: unknown; children?: Element[] };
-export type FC<T = Props> = (props: T) => Element;
-export type Element = { type: string | FC<Props>; props: Props };
+export type JSXElement = { type: string | FC<Props>; props: Props };
+export type Props = { [key: string]: unknown; children?: JSXElement[] };
+export type FC<T = Props> = (props: T) => JSXElement;
 
 /**
  * Prepares children for an Element. Removes child items that cannot be rendered and flattens lists.
  * @param elements - Elements to process.
  * @param children - Array to accumulate valid children into.
  */
-function prepareChildren(elements: (Element | Primitive)[], children: Element[] = []): Element[] {
+function prepareChildren(
+    elements: (JSXElement | Primitive)[],
+    children: JSXElement[] = []
+): JSXElement[] | undefined {
     // Create Element out of primitive children.
     for (const element of elements) {
         if (typeof element === 'object' && element) {
@@ -28,7 +31,6 @@ function prepareChildren(elements: (Element | Primitive)[], children: Element[] 
             }
             continue;
         }
-        // @TODO: remove wrapping?
         if (typeof element === 'string' || typeof element === 'number') {
             children.push({
                 type: TEXT_ELEMENT,
@@ -37,7 +39,7 @@ function prepareChildren(elements: (Element | Primitive)[], children: Element[] 
         }
     }
 
-    return children;
+    return children.length ? children : undefined;
 }
 
 /**
@@ -46,13 +48,13 @@ function prepareChildren(elements: (Element | Primitive)[], children: Element[] 
 export function jsx<TProps extends Props | null>(
     type: string | FC,
     props: TProps,
-    ...children: (Element | Primitive)[]
-): Element {
+    ...children: (JSXElement | Primitive)[]
+): JSXElement {
     return {
         type,
         props: {
             ...props,
-            children: props && props.children ? props.children : prepareChildren(children),
+            children: props?.children || prepareChildren(children),
         },
     };
 }

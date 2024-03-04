@@ -1,4 +1,4 @@
-import { Element, Props, FC } from './jsx.js';
+import { JSXElement, Props, FC } from './jsx.js';
 import DOM from './dom.js';
 import { CleanupFunc, EffectFunc, Hooks, processHooks, collectEffectCleanups } from './hooks.js';
 import { schedule } from './scheduler.js';
@@ -50,7 +50,7 @@ type Fiber<T extends string | FC = string | FC> = {
      */
     isAlternate?: boolean;
     /**
-     * When TRUE indicates that the fiber work is done.
+     * When TRUE indicates that the fiber work was done.
      */
     isDone: boolean;
     /**
@@ -76,12 +76,12 @@ type Fiber<T extends string | FC = string | FC> = {
     /**
      * Same as props.children for dom nodes, computed from render for component nodes.
      */
-    childElements?: Element[];
+    childElements?: JSXElement[];
 
     /**
      * Reference to the element that created this fiber.
      */
-    fromElement: Element;
+    fromElement: JSXElement;
 };
 
 type MaybeFiber = Fiber | undefined;
@@ -100,7 +100,7 @@ let effectCleanupsToRun: CleanupFunc[] = [];
  * @param element - The JSX element to render.
  * @param options - Options for the render.
  */
-export function createRoot(root: Node, element: Element) {
+export function createRoot(root: Node, element: JSXElement) {
     wipRoot = {
         type: APP_ROOT,
         dom: root,
@@ -402,14 +402,14 @@ function nextFiber(currFiber: Fiber, root?: Fiber): MaybeFiber {
  * @param wipFiberParent - Parent fiber to build children for.
  * @param elements - Child elements.
  */
-function diffChildren(wipFiberParent: Fiber, elements: Element[] = []) {
+function diffChildren(wipFiberParent: Fiber, elements: JSXElement[] = []) {
     let oldFiber = wipFiberParent.alternate && wipFiberParent.alternate.child;
     let prevSibling: MaybeFiber;
     let index = 0;
 
     while (index < elements.length || oldFiber) {
         let newFiber: MaybeFiber;
-        const childElement = elements[index] as Element | undefined;
+        const childElement = elements[index] as JSXElement | undefined;
 
         const isSameType = oldFiber?.type === childElement?.type;
         const isSameElement = childElement === oldFiber?.fromElement;

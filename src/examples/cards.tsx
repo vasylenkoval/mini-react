@@ -1,6 +1,6 @@
 /** @jsx jsx */
 import { createRoot } from '../fiber.js';
-import { jsx, Element } from '../jsx.js';
+import { jsx, JSXElement } from '../jsx.js';
 import { useState, useEffect } from '../hooks.js';
 
 const root = document.getElementById('root');
@@ -51,7 +51,7 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
-const Card = ({ children, title }: { children?: Element | Element[]; title: string }) => {
+const Card = ({ children, title }: { children?: JSXElement | JSXElement[]; title: string }) => {
     const [isOpen, setIsOpen] = useState(true);
     return (
         <div className="card">

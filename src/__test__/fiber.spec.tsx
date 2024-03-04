@@ -1,7 +1,7 @@
 /** @jsx jsx */
 import { createRoot } from '../fiber';
 import { useMemo, useState } from '../hooks';
-import { jsx, Element } from '../jsx';
+import { jsx, JSXElement } from '../jsx';
 
 describe('fiber', () => {
     it('should render a simple app', () => {
@@ -123,7 +123,7 @@ describe('fiber', () => {
         }: {
             id: string;
             start: string;
-            children?: Element[];
+            children?: JSXElement[];
             end: string;
         }) => {
             const [showChildren, setShowChildren] = useState(true);
@@ -178,23 +178,36 @@ describe('fiber', () => {
         const rootElement = document.createElement('div');
 
         let childRenders = 0;
+        let rerenderChild = () => {};
         const Child = () => {
+            const [, setCount] = useState(0);
+            rerenderChild = () => setCount((count) => ++count);
             childRenders++;
-            return <div>child</div>;
+            return <div>1</div>;
         };
 
-        let setCount: (value: number | ((prev: number) => number)) => void | undefined;
+        let rerender = () => {};
         const Parent = () => {
-            [, setCount] = useState(0);
+            const [, setCount] = useState(0);
+            rerender = () => setCount((count) => ++count);
             const cachedChild = useMemo(() => <Child />, []);
-            return <div>{cachedChild}</div>;
+            return (
+                <div>
+                    {cachedChild}
+                    <div>2</div>
+                </div>
+            );
         };
 
         /* Act */
         createRoot(rootElement, <Parent />);
-        setCount!((count) => count + 1);
-        setCount!((count) => count + 1);
 
-        expect(childRenders).toEqual(1);
+        rerender();
+        rerender();
+        rerenderChild();
+
+        /* Assert */
+        expect(childRenders).toEqual(2);
+        expect(rootElement.innerHTML).toBe('<div><div>1</div><div>2</div></div>');
     });
 });
