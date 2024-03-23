@@ -8,17 +8,21 @@ import { schedule } from './scheduler.js';
  */
 enum EffectTag {
     /**
-     * Add a new node to the DOM.
+     * Add to the DOM.
      */
     add,
     /**
-     * Update an existing node in the DOM.
+     * Update in the DOM.
      */
     update,
     /**
-     * Delete a node from the DOM.
+     * Delete this node from the DOM.
      */
     delete,
+    /**
+     * Skip the node update.
+     */
+    skip,
 }
 
 const APP_ROOT = 'root' as const;
@@ -134,16 +138,15 @@ function commitRoot() {
         commitWork(fiberToDelete);
     }
     deletions = [];
-    if (wipRoot) {
-        commitWork(wipRoot);
-    }
 
     if (wipRoot) {
+        commitWork(wipRoot);
+
         if (wipRoot.type === APP_ROOT) {
             // first mount
             currentRoot = wipRoot;
         } else {
-            // subsequent renders
+            // component re-renders, attaching fiber to existing root
             const originalFiber = wipRoot.alternate;
             const parent = wipRoot.parent!;
             let nextChild = parent.child!;
@@ -183,9 +186,9 @@ function commitRoot() {
  * @param fiber - Fiber to commit.
  */
 function commitWork(fiber: Fiber) {
-    const runAfterCommit: (() => void)[] = [];
+    let afterCommit: (() => void) | undefined;
 
-    if (fiber.dom && fiber.parent) {
+    if (fiber.dom && fiber.parent && fiber.effectTag !== EffectTag.skip) {
         // Find closest parent that's not a component.
         let parentWithDom: MaybeFiber = fiber.parent;
         while (!parentWithDom.dom) {
@@ -209,9 +212,7 @@ function commitWork(fiber: Fiber) {
                     parentWithDom?.effectTag === EffectTag.update;
 
                 if ((isParentRoot || isNewSubtree) && noSiblings) {
-                    // @TODO: do the check one level down, and use prepend instead?
-                    // remove runAfterCommit array as only 1 operation is possible after a commit.
-                    runAfterCommit.push(() => DOM.appendChild(parent, child));
+                    afterCommit = () => DOM.appendChild(parent, child);
                 } else {
                     DOM.appendChild(parent, child);
                 }
@@ -252,18 +253,9 @@ function commitWork(fiber: Fiber) {
         }
     }
 
-    if (fiber.child) {
-        commitWork(fiber.child);
-    }
-    if (fiber.sibling) {
-        commitWork(fiber.sibling);
-    }
-
-    if (runAfterCommit.length) {
-        for (const action of runAfterCommit) {
-            action();
-        }
-    }
+    if (fiber.child) commitWork(fiber.child);
+    if (fiber.sibling) commitWork(fiber.sibling);
+    if (afterCommit) afterCommit();
 }
 
 /**
@@ -370,7 +362,7 @@ function performUnitOfWork(fiber: Fiber): MaybeFiber {
     }
     diffChildren(fiber, fiber.childElements);
     fiber.isDone = true;
-    return nextFiber(fiber, wipRoot);
+    return nextFiber(fiber, wipRoot, (f) => !f.isDone);
 }
 
 /**
@@ -379,19 +371,23 @@ function performUnitOfWork(fiber: Fiber): MaybeFiber {
  * @param root - Top fiber to return to.
  * @returns Next fiber to perform work on.
  */
-function nextFiber(currFiber: Fiber, root?: Fiber): MaybeFiber {
+function nextFiber(
+    currFiber: Fiber,
+    root: MaybeFiber,
+    filter: (fiber: Fiber) => boolean = () => true
+): MaybeFiber {
     // Visit up to the last child first.
-    if (currFiber.child && !currFiber.child.isDone) {
+    if (currFiber.child && filter(currFiber.child)) {
         return currFiber.child;
     }
     let nextFiber: MaybeFiber = currFiber;
     while (nextFiber && nextFiber !== root) {
-        if (nextFiber.sibling && !nextFiber.sibling.isDone) {
+        if (nextFiber.sibling && filter(nextFiber.sibling)) {
             return nextFiber.sibling; // Exhaust all siblings.
-        } else if (nextFiber.sibling && nextFiber.sibling.isDone) {
-            nextFiber = nextFiber.sibling; // If next sibling is done, skip it.
+        } else if (nextFiber.sibling) {
+            nextFiber = nextFiber.sibling; // If didn't pass the filter but exists - skip it.
         } else {
-            nextFiber = nextFiber.parent; // Go up the tree until we reach the root or undefined.
+            nextFiber = nextFiber.parent; // If doesn't exist go up the tree until we reach the root or undefined.
         }
     }
     return;
@@ -413,9 +409,6 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[] = []) {
 
         const isSameType = oldFiber?.type === childElement?.type;
         const isSameElement = childElement === oldFiber?.fromElement;
-        if (isSameElement) {
-            newFiber = oldFiber;
-        }
 
         // Only store 2 levels.
         if (oldFiber && !isSameElement) {
@@ -424,9 +417,9 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[] = []) {
         }
 
         // Same node, update props.
-        if (!isSameElement && oldFiber && childElement && isSameType) {
+        if (oldFiber && childElement && isSameType) {
             newFiber = {
-                effectTag: EffectTag.update,
+                effectTag: isSameElement ? EffectTag.skip : EffectTag.update,
                 type: childElement.type,
                 props: childElement.props,
                 parent: wipFiberParent,
@@ -435,7 +428,7 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[] = []) {
                 dom: oldFiber.dom,
                 version: oldFiber.version + 1,
                 fromElement: childElement,
-                isDone: false,
+                isDone: isSameElement,
             };
         }
 

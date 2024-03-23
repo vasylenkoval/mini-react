@@ -17,7 +17,7 @@ describe('jsx', () => {
                     {
                         type: 'b',
                         props: {
-                            children: [],
+                            children: undefined,
                         },
                     },
                 ],
@@ -47,7 +47,7 @@ describe('jsx', () => {
                     {
                         type: 'b',
                         props: {
-                            children: [],
+                            children: undefined,
                         },
                     },
                 ],
