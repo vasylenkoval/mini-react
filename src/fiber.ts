@@ -54,10 +54,6 @@ type Fiber<T extends string | FC = string | FC> = {
      */
     isAlternate?: boolean;
     /**
-     * When TRUE indicates that the fiber work was done.
-     */
-    isDone: boolean;
-    /**
      * The dom node of the fiber. Only set for DOM (non-component) fibers.
      */
     dom?: Node;
@@ -110,7 +106,6 @@ export function createRoot(root: Node, element: JSXElement) {
         dom: root,
         version: 0,
         fromElement: element,
-        isDone: false,
         props: {
             children: [element],
         },
@@ -278,7 +273,6 @@ function pickNextComponentToRender(): MaybeFiber {
         alternate: componentFiber,
         effectTag: EffectTag.update,
         version: componentFiber.version + 1,
-        isDone: false,
     };
 }
 
@@ -361,8 +355,7 @@ function performUnitOfWork(fiber: Fiber): MaybeFiber {
         processComponentFiber(fiber as Fiber<FC>);
     }
     diffChildren(fiber, fiber.childElements);
-    fiber.isDone = true;
-    return nextFiber(fiber, wipRoot, (f) => !f.isDone);
+    return nextFiber(fiber, wipRoot, (f) => f.effectTag !== EffectTag.skip);
 }
 
 /**
@@ -428,7 +421,6 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[] = []) {
                 dom: oldFiber.dom,
                 version: oldFiber.version + 1,
                 fromElement: childElement,
-                isDone: isSameElement,
             };
         }
 
@@ -441,7 +433,6 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[] = []) {
                 parent: wipFiberParent,
                 version: 0,
                 fromElement: childElement,
-                isDone: false,
             };
         }
 

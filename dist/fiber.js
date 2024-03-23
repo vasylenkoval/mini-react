@@ -7,17 +7,21 @@ import { schedule } from './scheduler.js';
 var EffectTag;
 (function (EffectTag) {
     /**
-     * Add a new node to the DOM.
+     * Add to the DOM.
      */
     EffectTag[EffectTag["add"] = 0] = "add";
     /**
-     * Update an existing node in the DOM.
+     * Update in the DOM.
      */
     EffectTag[EffectTag["update"] = 1] = "update";
     /**
-     * Delete a node from the DOM.
+     * Delete this node from the DOM.
      */
     EffectTag[EffectTag["delete"] = 2] = "delete";
+    /**
+     * Skip the node update.
+     */
+    EffectTag[EffectTag["skip"] = 3] = "skip";
 })(EffectTag || (EffectTag = {}));
 const APP_ROOT = 'root';
 let nextUnitOfWork;
@@ -39,7 +43,6 @@ export function createRoot(root, element) {
         dom: root,
         version: 0,
         fromElement: element,
-        isDone: false,
         props: {
             children: [element],
         },
@@ -67,14 +70,12 @@ function commitRoot() {
     deletions = [];
     if (wipRoot) {
         commitWork(wipRoot);
-    }
-    if (wipRoot) {
         if (wipRoot.type === APP_ROOT) {
             // first mount
             currentRoot = wipRoot;
         }
         else {
-            // subsequent renders
+            // component re-renders, attaching fiber to existing root
             const originalFiber = wipRoot.alternate;
             const parent = wipRoot.parent;
             let nextChild = parent.child;
@@ -110,8 +111,8 @@ function commitRoot() {
  * @param fiber - Fiber to commit.
  */
 function commitWork(fiber) {
-    const runAfterCommit = [];
-    if (fiber.dom && fiber.parent) {
+    let afterCommit;
+    if (fiber.dom && fiber.parent && fiber.effectTag !== EffectTag.skip) {
         // Find closest parent that's not a component.
         let parentWithDom = fiber.parent;
         while (!parentWithDom.dom) {
@@ -130,9 +131,7 @@ function commitWork(fiber) {
                 const isNewSubtree = fiber.effectTag === EffectTag.add &&
                     parentWithDom?.effectTag === EffectTag.update;
                 if ((isParentRoot || isNewSubtree) && noSiblings) {
-                    // @TODO: do the check one level down, and use prepend instead?
-                    // remove runAfterCommit array as only 1 operation is possible after a commit.
-                    runAfterCommit.push(() => DOM.appendChild(parent, child));
+                    afterCommit = () => DOM.appendChild(parent, child);
                 }
                 else {
                     DOM.appendChild(parent, child);
@@ -170,17 +169,12 @@ function commitWork(fiber) {
             }
         }
     }
-    if (fiber.child) {
+    if (fiber.child)
         commitWork(fiber.child);
-    }
-    if (fiber.sibling) {
+    if (fiber.sibling)
         commitWork(fiber.sibling);
-    }
-    if (runAfterCommit.length) {
-        for (const action of runAfterCommit) {
-            action();
-        }
-    }
+    if (afterCommit)
+        afterCommit();
 }
 /**
  * Picks the next component to render from the render queue.
@@ -200,7 +194,6 @@ function pickNextComponentToRender() {
         alternate: componentFiber,
         effectTag: EffectTag.update,
         version: componentFiber.version + 1,
-        isDone: false,
     };
 }
 /**
@@ -270,8 +263,7 @@ function performUnitOfWork(fiber) {
         processComponentFiber(fiber);
     }
     diffChildren(fiber, fiber.childElements);
-    fiber.isDone = true;
-    return nextFiber(fiber, wipRoot);
+    return nextFiber(fiber, wipRoot, (f) => f.effectTag !== EffectTag.skip);
 }
 /**
  * Returns the next fiber to be processed by the unit of work.
@@ -279,21 +271,21 @@ function performUnitOfWork(fiber) {
  * @param root - Top fiber to return to.
  * @returns Next fiber to perform work on.
  */
-function nextFiber(currFiber, root) {
+function nextFiber(currFiber, root, filter = () => true) {
     // Visit up to the last child first.
-    if (currFiber.child && !currFiber.child.isDone) {
+    if (currFiber.child && filter(currFiber.child)) {
         return currFiber.child;
     }
     let nextFiber = currFiber;
     while (nextFiber && nextFiber !== root) {
-        if (nextFiber.sibling && !nextFiber.sibling.isDone) {
+        if (nextFiber.sibling && filter(nextFiber.sibling)) {
             return nextFiber.sibling; // Exhaust all siblings.
         }
-        else if (nextFiber.sibling && nextFiber.sibling.isDone) {
-            nextFiber = nextFiber.sibling; // If next sibling is done, skip it.
+        else if (nextFiber.sibling) {
+            nextFiber = nextFiber.sibling; // If didn't pass the filter but exists - skip it.
         }
         else {
-            nextFiber = nextFiber.parent; // Go up the tree until we reach the root or undefined.
+            nextFiber = nextFiber.parent; // If doesn't exist go up the tree until we reach the root or undefined.
         }
     }
     return;
@@ -312,18 +304,15 @@ function diffChildren(wipFiberParent, elements = []) {
         const childElement = elements[index];
         const isSameType = oldFiber?.type === childElement?.type;
         const isSameElement = childElement === oldFiber?.fromElement;
-        if (isSameElement) {
-            newFiber = oldFiber;
-        }
         // Only store 2 levels.
         if (oldFiber && !isSameElement) {
             oldFiber.alternate = undefined;
             oldFiber.isAlternate = true;
         }
         // Same node, update props.
-        if (!isSameElement && oldFiber && childElement && isSameType) {
+        if (oldFiber && childElement && isSameType) {
             newFiber = {
-                effectTag: EffectTag.update,
+                effectTag: isSameElement ? EffectTag.skip : EffectTag.update,
                 type: childElement.type,
                 props: childElement.props,
                 parent: wipFiberParent,
@@ -332,7 +321,6 @@ function diffChildren(wipFiberParent, elements = []) {
                 dom: oldFiber.dom,
                 version: oldFiber.version + 1,
                 fromElement: childElement,
-                isDone: false,
             };
         }
         // Brand new node.
@@ -344,7 +332,6 @@ function diffChildren(wipFiberParent, elements = []) {
                 parent: wipFiberParent,
                 version: 0,
                 fromElement: childElement,
-                isDone: false,
             };
         }
         // Delete old node.
