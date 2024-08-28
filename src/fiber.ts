@@ -130,12 +130,12 @@ function addToComponentRenderQueue(fiber: Fiber) {
  */
 function commitRoot() {
     for (const fiberToDelete of deletions) {
-        commitWork(fiberToDelete);
+        commitFiber(fiberToDelete);
     }
     deletions = [];
 
     if (wipRoot) {
-        commitWork(wipRoot);
+        commitFiber(wipRoot);
 
         if (wipRoot.type === APP_ROOT) {
             // first mount
@@ -180,10 +180,27 @@ function commitRoot() {
  * Removes nodes marked to be deleted.
  * @param fiber - Fiber to commit.
  */
-function commitWork(fiber: Fiber) {
+function commitFiber(fiber: Fiber) {
     let afterCommit: (() => void) | undefined;
 
-    if (fiber.dom && fiber.parent && fiber.effectTag !== EffectTag.skip) {
+    // No work to be done here, nothing changed.
+    if (fiber.effectTag === EffectTag.skip) {
+        return;
+    }
+
+    if (fiber.effectTag === EffectTag.delete) {
+        // Collect all of the useEffect cleanup functions to run after delete.
+        let currFiber: MaybeFiber = fiber;
+        while (currFiber) {
+            if (fiber.hooks) {
+                collectEffectCleanups(fiber.hooks, effectCleanupsToRun);
+            }
+            currFiber = nextFiber(currFiber, fiber);
+        }
+    }
+
+    // If fiber has a dom element, we need to sync it with the fiber.
+    if (fiber.dom && fiber.parent) {
         // Find closest parent that's not a component.
         let parentWithDom: MaybeFiber = fiber.parent;
         while (!parentWithDom.dom) {
@@ -248,8 +265,8 @@ function commitWork(fiber: Fiber) {
         }
     }
 
-    if (fiber.child) commitWork(fiber.child);
-    if (fiber.sibling) commitWork(fiber.sibling);
+    if (fiber.child) commitFiber(fiber.child);
+    if (fiber.sibling) commitFiber(fiber.sibling);
     if (afterCommit) afterCommit();
 }
 

@@ -1,4 +1,4 @@
-import { FC, JSXElement, Props, jsx } from './jsx.js';
+import { JSXElement, Props, jsx } from './jsx.js';
 
 /**
  * Saves the previous output of a component and only re-renders if the props have changed.
@@ -13,22 +13,17 @@ export function memo<T>(
     let cache: JSXElement | undefined;
     let prevProps: Props;
 
-    function MemoContainer(props: Props): JSXElement {
+    function Memo(props: Props): JSXElement {
         if (cache && compareFn(prevProps, props)) {
             return cache;
         }
         prevProps = props;
-        return jsx(MemoComponent, props);
-    }
-
-    function MemoComponent(props: Props): JSXElement {
         // @ts-ignore
-        cache = Component(props);
-        // @ts-ignore
+        cache = jsx(Component, props);
         return cache;
     }
 
-    return MemoContainer as T;
+    return Memo as T;
 }
 
 /**

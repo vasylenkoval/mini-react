@@ -8,20 +8,16 @@ import { jsx } from './jsx.js';
 export function memo(Component, compareFn = defaultCompare) {
     let cache;
     let prevProps;
-    function MemoContainer(props) {
+    function Memo(props) {
         if (cache && compareFn(prevProps, props)) {
             return cache;
         }
         prevProps = props;
-        return jsx(MemoComponent, props);
-    }
-    function MemoComponent(props) {
         // @ts-ignore
-        cache = Component(props);
-        // @ts-ignore
+        cache = jsx(Component, props);
         return cache;
     }
-    return MemoContainer;
+    return Memo;
 }
 /**
  * Default comparison function for memoized components.

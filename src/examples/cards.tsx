@@ -1,7 +1,7 @@
 /** @jsx jsx */
 import { createRoot } from '../fiber.js';
 import { jsx, JSXElement } from '../jsx.js';
-import { useState, useEffect } from '../hooks.js';
+import { useState, useEffect, useReducer } from '../hooks.js';
 
 const root = document.getElementById('root');
 const style = document.createElement('style');
@@ -94,30 +94,43 @@ const TimerCard = () => {
     );
 };
 
+type CountAction = { type: 'decrement' } | { type: 'increment' };
+
+const counterReducer = (state: { count: number }, action: CountAction) => {
+    if (action.type === 'decrement') {
+        if (state.count - 1 >= 0) {
+            return { count: state.count - 1 };
+        }
+    } else if (action.type === 'increment') {
+        return { count: state.count + 1 };
+    }
+    return {
+        ...state,
+    };
+};
+
+const initialCountState = {
+    count: 0,
+};
+
 const App = () => {
     const [name, setName] = useState('John Doe');
     const [age, setAge] = useState(33);
-    const [count, setCount] = useState(0);
-
-    const countUp = () => {
-        setCount((prev) => {
-            setCount((prev) => {
-                return ++prev;
-            });
-            return ++prev;
-        });
-    };
+    const [countState, countDispatch] = useReducer(counterReducer, initialCountState);
 
     return (
         <div className="app">
             <h1 className="title">Mini-React ⚛️</h1>
             <Card title="Counter">
-                <p>Count: {count} </p>
+                <p>Count: {countState.count} </p>
                 <div className="flex">
-                    <button style="margin-right:10px;" onClick={countUp}>
+                    <button
+                        style="margin-right:10px;"
+                        onClick={() => countDispatch({ type: 'increment' })}
+                    >
                         Up 👆
                     </button>
-                    <button onClick={() => setCount((prev) => Math.max(--prev, 0))}>Down 👇</button>
+                    <button onClick={() => countDispatch({ type: 'decrement' })}>Down 👇</button>
                 </div>
             </Card>
             <TimerCard />

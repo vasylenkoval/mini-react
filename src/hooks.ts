@@ -1,6 +1,7 @@
 export enum HookTypes {
     state,
     effect,
+    ref,
     memo,
 }
 
@@ -18,13 +19,18 @@ export type EffectHook = {
     deps?: unknown[];
 };
 
+export type RefHook<T> = {
+    type: HookTypes.ref;
+    value: { current: T };
+};
+
 export type MemoHook<T> = {
     type: HookTypes.memo;
     value: T;
     deps?: unknown[];
 };
 
-export type Hooks = (StateHook<any> | MemoHook<any> | EffectHook)[];
+export type Hooks = (StateHook<any> | MemoHook<any> | RefHook<any> | EffectHook)[];
 export type CleanupFunc = () => void;
 export type EffectFunc = () => void | CleanupFunc;
 
@@ -177,10 +183,10 @@ export function useEffect(effect: EffectFunc, deps?: unknown[]) {
 /**
  * Remembers the value returned from the callback passed.
  * Returns the same value between renders if dependencies haven't changed.
- * @param valueFn -
- * @param deps -
+ * @param valueFn - Callback to run to get the value.
+ * @param deps - Array of dependencies to compare with the previous run.
  */
-export function useMemo<T>(valueFn: () => T, deps: unknown[]) {
+export function useMemo<T>(valueFn: () => T, deps: unknown[]): T {
     hookIndex++;
     const oldHook = current.hooks[hookIndex] as MemoHook<T>;
     if (oldHook) {
@@ -199,4 +205,53 @@ export function useMemo<T>(valueFn: () => T, deps: unknown[]) {
 
     current.hooks.push(hook);
     return hook.value;
+}
+
+/**
+ * Remembers the value passed and returns a mutable ref object.
+ * @param init - Initial value to store in the ref.
+ */
+export function useRef<T>(initialValue: T): { current: T } {
+    hookIndex++;
+    const oldHook = current.hooks[hookIndex] as RefHook<T>;
+    if (oldHook) {
+        return oldHook.value;
+    }
+
+    const hook: RefHook<T> = {
+        type: HookTypes.ref,
+        value: { current: initialValue },
+    };
+
+    current.hooks.push(hook);
+    return hook.value;
+}
+
+export type Reducer<S, A> = (state: S, action: A) => S;
+export type Dispatch<A> = (action: A) => void;
+
+/**
+ *  Alternative to useState for more complex state management.
+ * @param reducer - Function to handle state changes.
+ * @param initStateOrArg - Argument for the initialization function or initial state.
+ * @param initFn - Function to initialize the state.
+ */
+export function useReducer<TState, TAction, TInitArg>(
+    reducer: Reducer<TState, TAction>,
+    initStateOrArg: TInitArg | TState,
+    initFn?: (arg: TInitArg | TState) => TState
+): [TState, Dispatch<TAction>] {
+    const ref = useRef<{ dispatch: Dispatch<TAction> | undefined; initState: TState }>({
+        dispatch: undefined,
+        initState: initFn ? initFn(initStateOrArg) : (initStateOrArg as TState),
+    });
+    const [state, setState] = useState(ref.current.initState);
+    if (ref.current.dispatch) {
+        return [state, ref.current.dispatch];
+    }
+    function dispatch(action: TAction) {
+        setState((prevState) => reducer(prevState, action));
+    }
+    ref.current.dispatch = dispatch;
+    return [state, dispatch];
 }

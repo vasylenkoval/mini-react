@@ -1,7 +1,7 @@
 /** @jsx jsx */
 import { createRoot } from '../fiber.js';
 import { jsx } from '../jsx.js';
-import { useState, useEffect } from '../hooks.js';
+import { useState, useEffect, useReducer } from '../hooks.js';
 const root = document.getElementById('root');
 const style = document.createElement('style');
 style.textContent = `
@@ -78,28 +78,36 @@ const TimerCard = () => {
                 isStopped ? 'Start timer' : 'Stop timer',
                 " \u23F1"))));
 };
+const counterReducer = (state, action) => {
+    if (action.type === 'decrement') {
+        if (state.count - 1 >= 0) {
+            return { count: state.count - 1 };
+        }
+    }
+    else if (action.type === 'increment') {
+        return { count: state.count + 1 };
+    }
+    return {
+        ...state,
+    };
+};
+const initialCountState = {
+    count: 0,
+};
 const App = () => {
     const [name, setName] = useState('John Doe');
     const [age, setAge] = useState(33);
-    const [count, setCount] = useState(0);
-    const countUp = () => {
-        setCount((prev) => {
-            setCount((prev) => {
-                return ++prev;
-            });
-            return ++prev;
-        });
-    };
+    const [countState, countDispatch] = useReducer(counterReducer, initialCountState);
     return (jsx("div", { className: "app" },
         jsx("h1", { className: "title" }, "Mini-React \u269B\uFE0F"),
         jsx(Card, { title: "Counter" },
             jsx("p", null,
                 "Count: ",
-                count,
+                countState.count,
                 " "),
             jsx("div", { className: "flex" },
-                jsx("button", { style: "margin-right:10px;", onClick: countUp }, "Up \uD83D\uDC46"),
-                jsx("button", { onClick: () => setCount((prev) => Math.max(--prev, 0)) }, "Down \uD83D\uDC47"))),
+                jsx("button", { style: "margin-right:10px;", onClick: () => countDispatch({ type: 'increment' }) }, "Up \uD83D\uDC46"),
+                jsx("button", { onClick: () => countDispatch({ type: 'decrement' }) }, "Down \uD83D\uDC47"))),
         jsx(TimerCard, null),
         jsx(Card, { title: "Inputs" },
             jsx("div", null,

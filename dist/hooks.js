@@ -2,7 +2,8 @@ export var HookTypes;
 (function (HookTypes) {
     HookTypes[HookTypes["state"] = 0] = "state";
     HookTypes[HookTypes["effect"] = 1] = "effect";
-    HookTypes[HookTypes["memo"] = 2] = "memo";
+    HookTypes[HookTypes["ref"] = 2] = "ref";
+    HookTypes[HookTypes["memo"] = 3] = "memo";
 })(HookTypes || (HookTypes = {}));
 /**
  * State for currently processed hooks. Reset right before the component's render.
@@ -129,8 +130,8 @@ export function useEffect(effect, deps) {
 /**
  * Remembers the value returned from the callback passed.
  * Returns the same value between renders if dependencies haven't changed.
- * @param valueFn -
- * @param deps -
+ * @param valueFn - Callback to run to get the value.
+ * @param deps - Array of dependencies to compare with the previous run.
  */
 export function useMemo(valueFn, deps) {
     hookIndex++;
@@ -149,4 +150,42 @@ export function useMemo(valueFn, deps) {
     };
     current.hooks.push(hook);
     return hook.value;
+}
+/**
+ * Remembers the value passed and returns a mutable ref object.
+ * @param init - Initial value to store in the ref.
+ */
+export function useRef(initialValue) {
+    hookIndex++;
+    const oldHook = current.hooks[hookIndex];
+    if (oldHook) {
+        return oldHook.value;
+    }
+    const hook = {
+        type: HookTypes.ref,
+        value: { current: initialValue },
+    };
+    current.hooks.push(hook);
+    return hook.value;
+}
+/**
+ *  Alternative to useState for more complex state management.
+ * @param reducer - Function to handle state changes.
+ * @param initStateOrArg - Argument for the initialization function or initial state.
+ * @param initFn - Function to initialize the state.
+ */
+export function useReducer(reducer, initStateOrArg, initFn) {
+    const ref = useRef({
+        dispatch: undefined,
+        initState: initFn ? initFn(initStateOrArg) : initStateOrArg,
+    });
+    const [state, setState] = useState(ref.current.initState);
+    if (ref.current.dispatch) {
+        return [state, ref.current.dispatch];
+    }
+    function dispatch(action) {
+        setState((prevState) => reducer(prevState, action));
+    }
+    ref.current.dispatch = dispatch;
+    return [state, dispatch];
 }

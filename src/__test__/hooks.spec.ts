@@ -1,4 +1,4 @@
-import { processHooks, useState, Hooks } from '../hooks';
+import { processHooks, useState, useReducer, Hooks } from '../hooks';
 
 const emptyFn = () => undefined;
 
@@ -23,7 +23,7 @@ const runHook = <TProps, TResult>(
 };
 
 describe('useState', () => {
-    it('should mount a hook and re-render', () => {
+    it('should mount and verify output', () => {
         /* Arrange */
         const test1 = 'Test 1';
         const test2 = 'Test 2';
@@ -74,5 +74,48 @@ describe('useState', () => {
         /* Assert */
         expect(mountValue).toEqual(renderValue);
         expect(mountValue).toEqual(initValue);
+    });
+});
+
+describe('useReducer', () => {
+    it('should mount with initial state and verify output', () => {
+        /* Arrange */
+        const initialState = { count: 0 };
+        const reducer = (state: { count: number }, action: { type: 'increment' | 'decrement' }) => {
+            switch (action.type) {
+                case 'increment':
+                    return { count: state.count + 1 };
+                case 'decrement':
+                    return { count: state.count - 1 };
+                default:
+                    return state;
+            }
+        };
+
+        /* Act */
+        const { value: mountVal, render } = runHook(() => useReducer(reducer, initialState));
+        const dispatch = mountVal[1];
+        const mountState = mountVal[0];
+
+        const { value: renderVal } = render();
+        const renderState = renderVal[0];
+        const renderDispatch = renderVal[1];
+
+        /* Assert */
+        expect(mountState).toEqual(initialState);
+        expect(mountState).toEqual(renderState);
+        expect(dispatch).toEqual(renderDispatch);
+
+        /** Act 2 */
+        dispatch({ type: 'increment' });
+        dispatch({ type: 'increment' });
+        const { value: incrementedVal } = render();
+
+        dispatch({ type: 'decrement' });
+        const { value: decrementedVal } = render();
+
+        /* Assert 2 */
+        expect(incrementedVal[0].count).toEqual(2);
+        expect(decrementedVal[0].count).toEqual(1);
     });
 });
