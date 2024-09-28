@@ -5,3 +5,4 @@ dist/examples/bench.js
 bench.html
 css
 src/examples/bench.tsx
+**/.DS_Store
