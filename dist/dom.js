@@ -72,4 +72,7 @@ function removeChild(parent, child) {
 function appendChild(parent, child) {
     parent.appendChild(child);
 }
-export default { createNode, addProps, removeChild, appendChild };
+function replaceWith(oldNode, newNode) {
+    oldNode.replaceWith(newNode);
+}
+export default { createNode, addProps, removeChild, appendChild, replaceWith };

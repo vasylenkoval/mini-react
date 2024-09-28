@@ -210,4 +210,160 @@ describe('fiber', () => {
         expect(childRenders).toEqual(2);
         expect(rootElement.innerHTML).toBe('<div><div>1</div><div>2</div></div>');
     });
+
+    it('should render 10000 items', () => {
+        /* Arrange */
+        const rootElement = document.createElement('div');
+
+        const Item = (props: { index: number }) => {
+            return <div id={`item-${props.index}`}>{props.index}</div>;
+        };
+        const itemsArr = Array.from({ length: 10000 }, (_, index) => index);
+        let populate = () => {};
+        const App = () => {
+            const [items, setItems] = useState<number[]>([]);
+            populate = () => setItems(itemsArr);
+
+            return (
+                <div id="root">
+                    <div id="header">List</div>
+                    <div id="list">
+                        {items.map((index) => (
+                            <Item index={index} />
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        /* Act */
+        createRoot(rootElement, <App />);
+        populate();
+
+        /* Assert */
+        expect(rootElement.innerHTML).toBe(
+            `<div id="root"><div id="header">List</div><div id="list">${itemsArr
+                .map((item) => `<div id="item-${item}">${item}</div>`)
+                .join('')}</div></div>`
+        );
+    });
+
+    it('should delete item from a list', () => {
+        /* Arrange */
+        const rootElement = document.createElement('div');
+
+        const Item = (props: { id: number }) => {
+            return <div id={`item-${props.id}`}>{props.id}</div>;
+        };
+        const itemsArr = Array.from({ length: 10 }, (_, index) => index);
+        let populate = (_itemsArr: number[]) => {};
+        const App = () => {
+            const [items, setItems] = useState<number[]>([]);
+            populate = (itemsArr: number[]) => setItems(itemsArr);
+
+            return (
+                <div id="root">
+                    <div id="header">List</div>
+                    <div id="list">
+                        {items.map((id) => (
+                            <Item id={id} />
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        /* Act */
+        createRoot(rootElement, <App />);
+        populate(itemsArr);
+        const newArr = itemsArr.filter((item) => item !== 5);
+        populate(newArr);
+
+        /* Assert */
+        expect(rootElement.innerHTML).toBe(
+            `<div id="root"><div id="header">List</div><div id="list">${newArr
+                .map((id) => `<div id="item-${id}">${id}</div>`)
+                .join('')}</div></div>`
+        );
+    });
+
+    it('should delete all items from a list', () => {
+        /* Arrange */
+        const rootElement = document.createElement('div');
+
+        const Item = (props: { id: number }) => {
+            return <div id={`item-${props.id}`}>{props.id}</div>;
+        };
+        const ItemWrapped = (props: { id: number }) => {
+            return <Item id={props.id} />;
+        };
+        const itemsArr = Array.from({ length: 10 }, (_, index) => index);
+        let populate = (_itemsArr: number[]) => {};
+        const App = () => {
+            const [items, setItems] = useState<number[]>([]);
+            populate = (itemsArr: number[]) => setItems(itemsArr);
+
+            return (
+                <div id="root">
+                    <div id="header">List</div>
+                    <div id="list">
+                        {items.map((id) => (
+                            <ItemWrapped id={id} />
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        /* Act */
+        createRoot(rootElement, <App />);
+        populate(itemsArr);
+        populate([]);
+
+        /* Assert */
+        expect(rootElement.innerHTML).toBe(
+            `<div id="root"><div id="header">List</div><div id="list"></div></div>`
+        );
+    });
+
+    it('should preserve state for keyed items', () => {
+        /* Arrange */
+        const rootElement = document.createElement('div');
+
+        const Item = (props: { id: number; key: number }) => {
+            const [count] = useState(props.id);
+            return <div>{count}</div>;
+        };
+
+        const itemsArr = Array.from({ length: 10 }, (_, index) => index);
+        let populate = (_itemsArr: number[]) => {};
+
+        const App = () => {
+            const [items, setItems] = useState<number[]>([]);
+            populate = (itemsArr: number[]) => setItems(itemsArr);
+            return (
+                <div id="root">
+                    <div id="header">List</div>
+                    <div id="list">
+                        {items.map((id) => (
+                            <Item id={id} key={id} />
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        /* Act */
+        createRoot(rootElement, <App />);
+        populate(itemsArr);
+        const newArr = itemsArr.slice().reverse();
+        populate(newArr);
+
+        /* Assert */
+        expect(rootElement.innerHTML).toBe(
+            `<div id="root"><div id="header">List</div><div id="list">${newArr
+                .map((id) => `<div>${id}</div>`)
+                .join('')}</div></div>`
+        );
+    });
 });

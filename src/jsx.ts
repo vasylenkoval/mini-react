@@ -9,7 +9,7 @@ declare global {
 export const TEXT_ELEMENT = 'TEXT';
 export type Primitive = undefined | null | string | number | boolean;
 export type JSXElement = { type: string | FC<Props>; props: Props };
-export type Props = { [key: string]: unknown; children?: JSXElement[] };
+export type Props = { [key: string]: unknown; children?: JSXElement[]; key?: string | number };
 export type FC<T = Props> = (props: T) => JSXElement;
 
 /**

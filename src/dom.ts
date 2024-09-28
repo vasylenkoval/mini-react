@@ -83,4 +83,8 @@ function appendChild(parent: Node, child: Node) {
     parent.appendChild(child);
 }
 
-export default { createNode, addProps, removeChild, appendChild };
+function replaceWith(oldNode: ChildNode, newNode: Node) {
+    oldNode.replaceWith(newNode);
+}
+
+export default { createNode, addProps, removeChild, appendChild, replaceWith };
