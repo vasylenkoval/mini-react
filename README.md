@@ -9,14 +9,12 @@ A work-in-progress, toy re-implementation of a subset of React's public API for 
 - useState ✅
 - useEffect ✅
 - useMemo ✅
-- useLayoutEffect
-- useRef
+- useRef ✅
+- Memo HOC ✅
+- Keyed Reconciliation ✅
 - useCallback
-- Memo HOC
-- Code-Splitting
+- useLayoutEffect
 - ...
 
 ## Not in scope
 - Class components
-- Server-Side Rendering
-
