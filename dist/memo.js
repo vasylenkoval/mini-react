@@ -1,3 +1,4 @@
+import { useRef } from './hooks.js';
 import { jsx } from './jsx.js';
 /**
  * Saves the previous output of a component and only re-renders if the props have changed.
@@ -6,16 +7,20 @@ import { jsx } from './jsx.js';
  * @returns Memoized component.
  */
 export function memo(Component, compareFn = defaultCompare) {
-    let cache;
-    let prevProps;
     function Memo(props) {
-        if (cache && compareFn(prevProps, props)) {
-            return cache;
+        const cacheRef = useRef(undefined);
+        if (!cacheRef.current) {
+            // @ts-ignore
+            cacheRef.current = { prevProps: props, prevJsx: jsx(Component, props) };
+            return cacheRef.current.prevJsx;
         }
-        prevProps = props;
+        if (compareFn(cacheRef.current.prevProps, props)) {
+            return cacheRef.current.prevJsx;
+        }
+        cacheRef.current.prevProps = props;
         // @ts-ignore
-        cache = jsx(Component, props);
-        return cache;
+        cacheRef.current.prevJsx = jsx(Component, props);
+        return cacheRef.current.prevJsx;
     }
     return Memo;
 }

@@ -1,4 +1,7 @@
+import { useRef } from './hooks.js';
 import { JSXElement, Props, jsx } from './jsx.js';
+
+type CacheRef = { prevProps: Props; prevJsx: JSXElement } | undefined;
 
 /**
  * Saves the previous output of a component and only re-renders if the props have changed.
@@ -10,17 +13,22 @@ export function memo<T>(
     Component: T,
     compareFn: (prevProps: Props, nextProps: Props) => boolean = defaultCompare
 ): T {
-    let cache: JSXElement | undefined;
-    let prevProps: Props;
-
     function Memo(props: Props): JSXElement {
-        if (cache && compareFn(prevProps, props)) {
-            return cache;
+        const cacheRef = useRef<CacheRef>(undefined);
+        if (!cacheRef.current) {
+            // @ts-ignore
+            cacheRef.current = { prevProps: props, prevJsx: jsx(Component, props) };
+            return cacheRef.current.prevJsx;
         }
-        prevProps = props;
+
+        if (compareFn(cacheRef.current.prevProps, props)) {
+            return cacheRef.current.prevJsx;
+        }
+
+        cacheRef.current.prevProps = props;
         // @ts-ignore
-        cache = jsx(Component, props);
-        return cache;
+        cacheRef.current.prevJsx = jsx(Component, props);
+        return cacheRef.current.prevJsx;
     }
 
     return Memo as T;

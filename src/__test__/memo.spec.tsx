@@ -144,4 +144,52 @@ describe('memo', () => {
         /* Assert */
         expect(childRenders).toEqual(3);
     });
+
+    it('should re-render only 1 row', () => {
+        /* Arrange */
+        const rootElement = document.createElement('div');
+
+        let childRenders: Record<string, number> = {};
+        const Row = (props: { id: string; key: string | number; value: string }) => {
+            childRenders[props.id] = (childRenders[props.id] || 0) + 1;
+            return <div>{props.value}</div>;
+        };
+
+        const MemoRow = memo(Row);
+
+        let setValues = (values: { id: string; value: string }[]) => {};
+        const List = () => {
+            const [state, setState] = useState([
+                { id: '1', value: 'foo' },
+                { id: '2', value: 'bar' },
+                { id: '3', value: 'baz' },
+            ]);
+            setValues = (values) => setState(values);
+            return (
+                <div>
+                    {state.map((item) => (
+                        <MemoRow key={item.id} id={item.id} value={item.value} />
+                    ))}
+                </div>
+            );
+        };
+
+        /* Act */
+        createRoot(rootElement, <List />);
+        setValues([
+            { id: '1', value: 'foo' },
+            { id: '2', value: 'bar' },
+            { id: '3', value: 'baz' },
+        ]);
+        setValues([
+            { id: '1', value: 'foo' },
+            { id: '2', value: 'test' },
+            { id: '3', value: 'baz' },
+        ]);
+
+        /* Assert */
+        expect(childRenders['1']).toEqual(1);
+        expect(childRenders['2']).toEqual(2);
+        expect(childRenders['3']).toEqual(1);
+    });
 });
