@@ -481,6 +481,8 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[] = []) {
                 dom: oldFiberSequential.dom,
                 version: oldFiber.version + 1,
                 fromElement: childElement,
+                child: isSameElement ? oldFiber.child : undefined,
+                sibling: isSameElement ? oldFiber.sibling : undefined,
             };
         }
 

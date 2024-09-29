@@ -1,7 +1,7 @@
 /** @jsx jsx */
 import { createRoot } from '../fiber';
-import { useMemo, useState } from '../hooks';
-import { FC, jsx, JSXElement } from '../jsx';
+import { useState } from '../hooks';
+import { jsx } from '../jsx';
 import { memo } from '../memo';
 
 describe('memo', () => {
@@ -191,5 +191,8 @@ describe('memo', () => {
         expect(childRenders['1']).toEqual(1);
         expect(childRenders['2']).toEqual(2);
         expect(childRenders['3']).toEqual(1);
+        expect(rootElement.innerHTML).toBe(
+            `<div><div>foo</div><div>test</div><div>baz</div></div>`
+        );
     });
 });

@@ -356,6 +356,8 @@ function diffChildren(wipFiberParent, elements = []) {
                 dom: oldFiberSequential.dom,
                 version: oldFiber.version + 1,
                 fromElement: childElement,
+                child: isSameElement ? oldFiber.child : undefined,
+                sibling: isSameElement ? oldFiber.sibling : undefined,
             };
         }
         // Brand new node.
