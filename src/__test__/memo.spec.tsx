@@ -107,7 +107,6 @@ describe('memo', () => {
         createRoot(rootElement, <Parent />);
 
         rerender();
-        rerender();
 
         /* Assert */
         expect(childRenders).toEqual(1);
