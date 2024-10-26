@@ -44,12 +44,20 @@ export function createRoot(root, element, fakeDom) {
     }
     wipRoot = {
         type: APP_ROOT,
+        parent: undefined,
+        child: undefined,
+        sibling: undefined,
+        alternate: undefined,
+        isAlternate: false,
         dom: root,
-        version: 0,
-        fromElement: element,
+        hooks: [],
+        effectTag: EffectTag.add,
         props: {
             children: [element],
         },
+        version: 0,
+        childElements: [],
+        fromElement: element,
     };
     nextUnitOfWork = wipRoot;
     schedule(workloop);
@@ -249,7 +257,7 @@ function processDomFiber(fiber) {
             DOM.addProps(fiber.dom, fiber.props);
         }
     }
-    fiber.childElements = fiber.props.children;
+    fiber.childElements = fiber.props.children ?? [];
 }
 /**
  * Performs a single unit of work.
@@ -351,27 +359,36 @@ function diffChildren(wipFiberParent, elements = []) {
         // Same node, update props.
         if (oldFiber && childElement && isSameType) {
             newFiber = {
-                effectTag: isSameElement ? EffectTag.skip : EffectTag.update,
                 type: childElement.type,
-                props: childElement.props,
                 parent: wipFiberParent,
-                alternate: oldFiberSequential,
-                hooks: oldFiber.hooks,
-                dom: oldFiberSequential.dom,
-                version: oldFiber.version + 1,
-                fromElement: childElement,
                 child: isSameElement ? oldFiber.child : undefined,
                 sibling: isSameElement ? oldFiber.sibling : undefined,
+                alternate: oldFiberSequential,
+                isAlternate: false,
+                dom: oldFiberSequential.dom,
+                hooks: oldFiber.hooks,
+                effectTag: isSameElement ? EffectTag.skip : EffectTag.update,
+                props: childElement.props,
+                version: oldFiber.version + 1,
+                childElements: [],
+                fromElement: childElement,
             };
         }
         // Brand new node.
         if (!isSameType && childElement) {
             newFiber = {
-                effectTag: EffectTag.add,
                 type: childElement.type,
-                props: childElement.props,
                 parent: wipFiberParent,
+                child: undefined,
+                sibling: undefined,
+                alternate: undefined,
+                isAlternate: false,
+                dom: undefined,
+                hooks: [],
+                effectTag: EffectTag.add,
+                props: childElement.props,
                 version: 0,
+                childElements: [],
                 fromElement: childElement,
             };
         }

@@ -52,9 +52,8 @@ export function jsx<TProps extends Props | null>(
 ): JSXElement {
     return {
         type,
-        props: {
-            ...props,
+        props: Object.assign(props ?? {}, {
             children: props?.children || prepareChildren(children),
-        },
+        }),
     };
 }

@@ -31,9 +31,8 @@ function prepareChildren(elements, children = []) {
 export function jsx(type, props, ...children) {
     return {
         type,
-        props: {
-            ...props,
+        props: Object.assign(props ?? {}, {
             children: props?.children || prepareChildren(children),
-        },
+        }),
     };
 }
