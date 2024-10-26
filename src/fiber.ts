@@ -1,5 +1,5 @@
 import { JSXElement, Props, FC } from './jsx.js';
-import DOM from './dom.js';
+import REAL_DOM from './dom.js';
 import { CleanupFunc, EffectFunc, Hooks, processHooks, collectEffectCleanups } from './hooks.js';
 import { schedule } from './scheduler.js';
 
@@ -95,6 +95,7 @@ let currentRoot: MaybeFiber;
 let deletions: Fiber[] = [];
 let effectsToRun: EffectFunc[] = [];
 let effectCleanupsToRun: CleanupFunc[] = [];
+let DOM = REAL_DOM;
 
 /**
  * Creates app root and kicks off the first render.
@@ -102,7 +103,10 @@ let effectCleanupsToRun: CleanupFunc[] = [];
  * @param element - The JSX element to render.
  * @param options - Options for the render.
  */
-export function createRoot(root: Node, element: JSXElement) {
+export function createRoot(root: Node, element: JSXElement, fakeDom?: typeof REAL_DOM) {
+    if (fakeDom) {
+        DOM = fakeDom;
+    }
     wipRoot = {
         type: APP_ROOT,
         dom: root,

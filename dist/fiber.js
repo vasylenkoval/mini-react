@@ -1,4 +1,4 @@
-import DOM from './dom.js';
+import REAL_DOM from './dom.js';
 import { processHooks, collectEffectCleanups } from './hooks.js';
 import { schedule } from './scheduler.js';
 /**
@@ -31,13 +31,17 @@ let currentRoot;
 let deletions = [];
 let effectsToRun = [];
 let effectCleanupsToRun = [];
+let DOM = REAL_DOM;
 /**
  * Creates app root and kicks off the first render.
  * @param root - The topmost DOM node to attach elements to.
  * @param element - The JSX element to render.
  * @param options - Options for the render.
  */
-export function createRoot(root, element) {
+export function createRoot(root, element, fakeDom) {
+    if (fakeDom) {
+        DOM = fakeDom;
+    }
     wipRoot = {
         type: APP_ROOT,
         dom: root,
