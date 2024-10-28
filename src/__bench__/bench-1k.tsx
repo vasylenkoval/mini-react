@@ -10,8 +10,9 @@ type FAKEDOM = {
     replaceWith: (oldNode: ChildNode, newNode: Node) => void;
 };
 
+const emptyObj = {};
 const FAKE_DOM: FAKEDOM = {
-    createNode: () => void 0 as any,
+    createNode: () => emptyObj as any,
     addProps: () => void 0,
     removeChild: () => void 0,
     replaceWith: () => void 0,

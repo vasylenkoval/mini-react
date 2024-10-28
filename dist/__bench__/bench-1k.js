@@ -1,8 +1,9 @@
 /** @jsx jsx */
 import { createRoot, jsx } from '../index.js';
 import { BenchMain } from './app.js';
+const emptyObj = {};
 const FAKE_DOM = {
-    createNode: () => void 0,
+    createNode: () => emptyObj,
     addProps: () => void 0,
     removeChild: () => void 0,
     replaceWith: () => void 0,
@@ -18,4 +19,4 @@ dispatchRef.current({ type: 'RUN' });
 dispatchRef.current({ type: 'UPDATE' });
 dispatchRef.current({ type: 'CLEAR' });
 const end = performance.now();
-console.log(`bench-10k: took ${end - start} ms`);
+console.log(`bench-1k: took ${end - start} ms`);

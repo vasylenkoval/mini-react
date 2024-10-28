@@ -330,6 +330,60 @@ function findNextFiber(currFiber, root, predicate) {
  * @param elements - Child elements.
  */
 function diffChildren(wipFiberParent, elements = []) {
+    // If fiber is a dom fiber and was previously commited and has no child elements and previous fiber had elements
+    // we can bail out of doing a full diff, instead we can just recreate the current wip fiber.
+    if (!elements.length &&
+        !!wipFiberParent.dom &&
+        !!wipFiberParent.parent &&
+        !!wipFiberParent.alternate &&
+        !!wipFiberParent.alternate.child) {
+        const recreatedFiber = {
+            type: wipFiberParent.type,
+            parent: wipFiberParent.parent,
+            child: undefined,
+            sibling: wipFiberParent.sibling,
+            alternate: wipFiberParent,
+            isAlternate: false,
+            dom: undefined,
+            hooks: wipFiberParent.hooks,
+            effectTag: EffectTag.add,
+            props: wipFiberParent.props,
+            version: wipFiberParent.version + 1,
+            childElements: [],
+            fromElement: wipFiberParent.fromElement,
+        };
+        // Patch the fiber that's pointing to this fiber
+        let success = false;
+        let pointingFiber = wipFiberParent.parent;
+        if (pointingFiber && pointingFiber.child === wipFiberParent) {
+            pointingFiber.child = recreatedFiber;
+            success = true;
+        }
+        else if (pointingFiber.child) {
+            pointingFiber = pointingFiber.child;
+            while (pointingFiber.sibling !== wipFiberParent) {
+                if (!pointingFiber.sibling) {
+                    break;
+                }
+                pointingFiber = pointingFiber.sibling;
+            }
+            if (pointingFiber.sibling === wipFiberParent) {
+                pointingFiber.sibling = recreatedFiber;
+                success = true;
+            }
+        }
+        if (success) {
+            processDomFiber(recreatedFiber);
+            // If fiber is a dom fiber and has no child elements, while previous fiber had elements
+            // we can bail out of doing a full diff and insted delete all old elements in one go
+            // by just recreating this fiber.
+            wipFiberParent.alternate = undefined;
+            wipFiberParent.isAlternate = true;
+            wipFiberParent.effectTag = EffectTag.delete;
+            deletions.push(wipFiberParent);
+            return;
+        }
+    }
     // Collect all old fibers by key.
     const oldFibersMapByKey = new Map();
     const oldFibers = [];
