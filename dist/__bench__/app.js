@@ -1,5 +1,5 @@
 /** @jsx jsx */
-import { jsx, memo, useReducer } from '../index.js';
+import { jsx, memo, useReducer, useMemo } from '../index.js';
 const random = (max) => Math.round(Math.random() * 1000) % max;
 const A = [
     'pretty',
@@ -113,9 +113,9 @@ const Row = memo(({ selected, item, dispatch }) => {
     return (jsx("tr", { className: selected ? 'danger' : '' },
         jsx("td", { className: "col-md-1" }, item.id),
         jsx("td", { className: "col-md-4" },
-            jsx("a", { onClick: () => dispatch({ type: 'SELECT', id: item.id }) }, item.label)),
+            jsx("a", { onClick: useMemo(() => () => dispatch({ type: 'SELECT', id: item.id }), []) }, item.label)),
         jsx("td", { className: "col-md-1" },
-            jsx("a", { onClick: () => dispatch({ type: 'REMOVE', id: item.id }) },
+            jsx("a", { onClick: useMemo(() => () => dispatch({ type: 'REMOVE', id: item.id }), []) },
                 jsx("span", { className: "glyphicon glyphicon-remove", "aria-hidden": "true" }))),
         jsx("td", { className: "col-md-6" })));
 }, (prevProps, nextProps) => prevProps.selected === nextProps.selected && prevProps.item === nextProps.item);

@@ -1,5 +1,5 @@
 /** @jsx jsx */
-import { jsx, memo, Dispatch, useReducer } from '../index.js';
+import { jsx, memo, Dispatch, useReducer, useMemo } from '../index.js';
 
 const random = (max: number) => Math.round(Math.random() * 1000) % max;
 
@@ -140,10 +140,12 @@ const Row = memo(
             <tr className={selected ? 'danger' : ''}>
                 <td className="col-md-1">{item.id}</td>
                 <td className="col-md-4">
-                    <a onClick={() => dispatch({ type: 'SELECT', id: item.id })}>{item.label}</a>
+                    <a onClick={useMemo(() => () => dispatch({ type: 'SELECT', id: item.id }), [])}>
+                        {item.label}
+                    </a>
                 </td>
                 <td className="col-md-1">
-                    <a onClick={() => dispatch({ type: 'REMOVE', id: item.id })}>
+                    <a onClick={useMemo(() => () => dispatch({ type: 'REMOVE', id: item.id }), [])}>
                         <span className="glyphicon glyphicon-remove" aria-hidden="true" />
                     </a>
                 </td>

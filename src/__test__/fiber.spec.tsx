@@ -366,4 +366,40 @@ describe('fiber', () => {
                 .join('')}</div></div>`
         );
     });
+
+    it('should not re-render if props have not changed because of hashing', () => {
+        /* Arrange */
+        const rootElement = document.createElement('div');
+
+        let childRerenders = 0;
+        const Item = (props: { index: number }) => {
+            childRerenders++;
+            return <div id={`item-${props.index}`}>{props.index}</div>;
+        };
+        const itemsArr = Array.from({ length: 10 }, (_, index) => index);
+        let populate = (_itemsArr: number[]) => {};
+        const App = () => {
+            const [items, setItems] = useState<number[]>([]);
+            populate = (itemsArr) => setItems(itemsArr);
+
+            return (
+                <div id="root">
+                    <div id="header">List</div>
+                    <div id="list">
+                        {items.map((index) => (
+                            <Item index={index} />
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        /* Act */
+        createRoot(rootElement, <App />);
+        populate(itemsArr);
+        populate([...itemsArr]);
+
+        /* Assert */
+        expect(childRerenders).toEqual(10);
+    });
 });

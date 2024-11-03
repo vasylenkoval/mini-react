@@ -1,6 +1,7 @@
 import REAL_DOM from './dom.js';
 import { processHooks, collectEffectCleanups } from './hooks.js';
 import { schedule } from './scheduler.js';
+import { EMPTY_ARR } from './constants.js';
 /**
  * Effect tags used to determine what to do with the fiber after a render.
  */
@@ -58,6 +59,8 @@ export function createRoot(root, element, fakeDom) {
         version: 0,
         childElements: [],
         fromElement: element,
+        childrenPropsHash: element.childrenPropsHash,
+        ownPropsHash: element.ownPropsHash,
     };
     nextUnitOfWork = wipRoot;
     schedule(workloop);
@@ -257,7 +260,7 @@ function processDomFiber(fiber) {
             DOM.addProps(fiber.dom, fiber.props);
         }
     }
-    fiber.childElements = fiber.props.children ?? [];
+    fiber.childElements = fiber.props.children ?? EMPTY_ARR;
 }
 /**
  * Performs a single unit of work.
@@ -290,7 +293,7 @@ function nextFiber(currFiber, root, skipFn = defaultPredicate) {
     if (currFiber.child && skipFn(currFiber.child)) {
         return currFiber.child;
     }
-    let nextFiber = currFiber;
+    let nextFiber = currFiber.child ?? currFiber;
     while (nextFiber && nextFiber !== root) {
         if (nextFiber.sibling && skipFn(nextFiber.sibling)) {
             return nextFiber.sibling; // Exhaust all siblings.
@@ -329,7 +332,7 @@ function findNextFiber(currFiber, root, predicate) {
  * @param wipFiberParent - Parent fiber to build children for.
  * @param elements - Child elements.
  */
-function diffChildren(wipFiberParent, elements = []) {
+function diffChildren(wipFiberParent, elements) {
     // If fiber is a dom fiber and was previously commited and has no child elements and previous fiber had elements
     // we can bail out of doing a full diff, instead we can just recreate the current wip fiber.
     if (!elements.length &&
@@ -351,6 +354,8 @@ function diffChildren(wipFiberParent, elements = []) {
             version: wipFiberParent.version + 1,
             childElements: [],
             fromElement: wipFiberParent.fromElement,
+            childrenPropsHash: wipFiberParent.childrenPropsHash,
+            ownPropsHash: wipFiberParent.ownPropsHash,
         };
         // Patch the fiber that's pointing to this fiber
         let success = false;
@@ -412,20 +417,24 @@ function diffChildren(wipFiberParent, elements = []) {
         }
         // Same node, update props.
         if (oldFiber && childElement && isSameType) {
+            let isSameProps = childElement.childrenPropsHash === oldFiber.childrenPropsHash;
+            let isSameElementOrPropsAndIntrinsic = isSameElement || (isSameProps && typeof childElement.type === 'string');
             newFiber = {
                 type: childElement.type,
                 parent: wipFiberParent,
-                child: isSameElement ? oldFiber.child : undefined,
-                sibling: isSameElement ? oldFiber.sibling : undefined,
+                child: isSameElementOrPropsAndIntrinsic ? oldFiber.child : undefined,
+                sibling: isSameElementOrPropsAndIntrinsic ? oldFiber.sibling : undefined,
                 alternate: oldFiberSequential,
                 isAlternate: false,
                 dom: oldFiberSequential.dom,
                 hooks: oldFiber.hooks,
-                effectTag: isSameElement ? EffectTag.skip : EffectTag.update,
+                effectTag: isSameElementOrPropsAndIntrinsic ? EffectTag.skip : EffectTag.update,
                 props: childElement.props,
                 version: oldFiber.version + 1,
                 childElements: [],
                 fromElement: childElement,
+                childrenPropsHash: childElement.childrenPropsHash,
+                ownPropsHash: childElement.ownPropsHash,
             };
         }
         // Brand new node.
@@ -444,6 +453,8 @@ function diffChildren(wipFiberParent, elements = []) {
                 version: 0,
                 childElements: [],
                 fromElement: childElement,
+                childrenPropsHash: childElement.childrenPropsHash,
+                ownPropsHash: childElement.ownPropsHash,
             };
         }
         // Delete old node.
