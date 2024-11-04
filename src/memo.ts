@@ -14,7 +14,6 @@ export function memo<T>(
     compareFn: (prevProps: Props, nextProps: Props) => boolean = defaultCompare
 ): T {
     function Memo(props: Props): JSXElement {
-        debugger;
         const cacheRef = useRef<CacheRef>(undefined);
         if (!cacheRef.current) {
             // @ts-ignore

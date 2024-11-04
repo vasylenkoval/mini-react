@@ -8,7 +8,6 @@ import { jsx } from './jsx.js';
  */
 export function memo(Component, compareFn = defaultCompare) {
     function Memo(props) {
-        debugger;
         const cacheRef = useRef(undefined);
         if (!cacheRef.current) {
             // @ts-ignore

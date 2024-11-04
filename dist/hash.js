@@ -55,8 +55,8 @@ export function getPropsHash(props) {
         if (typeof value === 'object' || typeof value === 'function') {
             value = byReferenceRegistry.get(value);
             if (value === undefined) {
-                byReferenceRegistry.set(oValue, byReferenceId++);
-                value = byReferenceId;
+                value = ++byReferenceId;
+                byReferenceRegistry.set(oValue, value);
             }
         }
         valueHash = valueHash + String(value);

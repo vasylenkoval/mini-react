@@ -417,18 +417,18 @@ function diffChildren(wipFiberParent, elements) {
         }
         // Same node, update props.
         if (oldFiber && childElement && isSameType) {
-            let isSameProps = childElement.childrenPropsHash === oldFiber.childrenPropsHash;
-            let isSameElementOrPropsAndIntrinsic = isSameElement || (isSameProps && typeof childElement.type === 'string');
+            let isSameElementOrProps = isSameElement ||
+                childElement.childrenPropsHash === oldFiberSequential.childrenPropsHash;
             newFiber = {
                 type: childElement.type,
                 parent: wipFiberParent,
-                child: isSameElementOrPropsAndIntrinsic ? oldFiber.child : undefined,
-                sibling: isSameElementOrPropsAndIntrinsic ? oldFiber.sibling : undefined,
+                child: isSameElementOrProps ? oldFiber.child : undefined,
+                sibling: isSameElementOrProps ? oldFiber.sibling : undefined,
                 alternate: oldFiberSequential,
                 isAlternate: false,
                 dom: oldFiberSequential.dom,
                 hooks: oldFiber.hooks,
-                effectTag: isSameElementOrPropsAndIntrinsic ? EffectTag.skip : EffectTag.update,
+                effectTag: isSameElementOrProps ? EffectTag.skip : EffectTag.update,
                 props: childElement.props,
                 version: oldFiber.version + 1,
                 childElements: [],

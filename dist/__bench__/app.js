@@ -109,7 +109,7 @@ const listReducer = (state, action) => {
             return state;
     }
 };
-const Row = memo(({ selected, item, dispatch }) => {
+const Row = memo(({ selected, item, dispatch, }) => {
     return (jsx("tr", { className: selected ? 'danger' : '' },
         jsx("td", { className: "col-md-1" }, item.id),
         jsx("td", { className: "col-md-4" },
@@ -139,7 +139,7 @@ export const BenchMain = ({ dispatchRef, }) => {
     return (jsx("div", { className: "container" },
         jsx(Jumbotron, { dispatch: dispatch }),
         jsx("table", { className: "table table-hover table-striped test-data" },
-            jsx("tbody", null, data.map((item) => (jsx(Row, { item: item, selected: selected === item.id, dispatch: dispatch }))))),
+            jsx("tbody", null, data.map((item) => (jsx(Row, { key: item.id, item: item, selected: selected === item.id, dispatch: dispatch }))))),
         jsx("span", { className: "preloadicon glyphicon glyphicon-remove", "aria-hidden": "true" })));
 };
 // createRoot(document.getElementById('root')!, <BenchMain />);

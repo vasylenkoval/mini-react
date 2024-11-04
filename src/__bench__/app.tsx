@@ -135,7 +135,16 @@ const listReducer = (state: typeof initialState, action: Action) => {
 };
 
 const Row = memo(
-    ({ selected, item, dispatch }: { selected: boolean; item: any; dispatch: any }) => {
+    ({
+        selected,
+        item,
+        dispatch,
+    }: {
+        key: string;
+        selected: boolean;
+        item: any;
+        dispatch: any;
+    }) => {
         return (
             <tr className={selected ? 'danger' : ''}>
                 <td className="col-md-1">{item.id}</td>
@@ -221,7 +230,12 @@ export const BenchMain = ({
             <table className="table table-hover table-striped test-data">
                 <tbody>
                     {data.map((item: any) => (
-                        <Row item={item} selected={selected === item.id} dispatch={dispatch} />
+                        <Row
+                            key={item.id}
+                            item={item}
+                            selected={selected === item.id}
+                            dispatch={dispatch}
+                        />
                     ))}
                 </tbody>
             </table>
