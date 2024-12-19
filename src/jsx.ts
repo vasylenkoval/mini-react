@@ -1,4 +1,3 @@
-import { getPropsHash } from './hash.js';
 import { EMPTY_ARR } from './constants.js';
 
 // @TODO: import a proper definition.
@@ -14,8 +13,6 @@ export type Primitive = undefined | null | string | number | boolean;
 export type JSXElement = {
     type: string | FC<Props>;
     props: Props;
-    ownPropsHash: string;
-    childrenPropsHash: string;
 };
 export type Props = { [key: string]: unknown; children?: JSXElement[]; key?: string | number };
 export type FC<T = Props> = (props: T) => JSXElement;
@@ -40,10 +37,7 @@ function prepareChildren(
             continue;
         }
         if (typeof element === 'string' || typeof element === 'number') {
-            const ownPropsHash = String(element);
             children.push({
-                ownPropsHash,
-                childrenPropsHash: ownPropsHash,
                 type: TEXT_ELEMENT,
                 props: { nodeValue: element },
             });
@@ -57,29 +51,14 @@ function prepareChildren(
  * Creates a new JSX element with the specified type, props, and children.
  */
 export function jsx<TProps extends Props | null>(
-    _type: string | FC,
-    _props: TProps,
-    ..._children: (JSXElement | Primitive)[]
+    type: string | FC,
+    props: TProps,
+    ...children: (JSXElement | Primitive)[]
 ): JSXElement {
-    let children = _children;
-    const props = _props ?? ({} as any);
-    const ownPropsHash = getPropsHash(props);
-    let childrenPropsHash = ownPropsHash;
-
-    if (!props.children) {
-        children = prepareChildren(children) ?? EMPTY_ARR;
-        for (const child of children) {
-            childrenPropsHash =
-                childrenPropsHash + (child as unknown as JSXElement).childrenPropsHash;
-        }
-    }
-
     return {
-        ownPropsHash,
-        childrenPropsHash,
-        type: _type,
+        type,
         props: Object.assign(props ?? {}, {
-            children: props?.children || children,
+            children: props?.children ?? prepareChildren(children) ?? EMPTY_ARR,
         }),
     };
 }

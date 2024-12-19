@@ -78,14 +78,10 @@ interface Fiber<T extends string | FC = string | FC> {
      * Same as props.children for dom nodes, computed from render for component nodes.
      */
     childElements: JSXElement[];
-
     /**
      * Reference to the element that created this fiber.
      */
     fromElement: JSXElement;
-
-    childrenPropsHash: string;
-    ownPropsHash: string;
 }
 
 type MaybeFiber = Fiber | undefined;
@@ -127,8 +123,6 @@ export function createRoot(root: Node, element: JSXElement, fakeDom?: typeof REA
         version: 0,
         childElements: [],
         fromElement: element,
-        childrenPropsHash: element.childrenPropsHash,
-        ownPropsHash: element.ownPropsHash,
     };
     nextUnitOfWork = wipRoot;
     schedule(workloop);
@@ -240,8 +234,8 @@ function commitFiber(fiber: Fiber): MaybeAfterCommitFunc {
 
         // Find the closest child and remove it from the dom.
         const closestChildDOM = fiber.dom ?? findNextFiber(fiber, fiber, (f) => !!f.dom)?.dom;
-        if (closestChildDOM) {
-            DOM.removeChild(closestChildDOM.parentNode!, closestChildDOM);
+        if (closestChildDOM && closestChildDOM.parentNode) {
+            DOM.removeChild(closestChildDOM.parentNode, closestChildDOM);
         }
     }
 
@@ -453,7 +447,7 @@ function findNextFiber(
  * @param elements - Child elements.
  */
 function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
-    // If fiber is a dom fiber and was previously commited and has no child elements and previous fiber had elements
+    // If fiber is a dom fiber and was previously committed and has no child elements and previous fiber had elements
     // we can bail out of doing a full diff, instead we can just recreate the current wip fiber.
     if (
         !elements.length &&
@@ -476,8 +470,6 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
             version: wipFiberParent.version + 1,
             childElements: [],
             fromElement: wipFiberParent.fromElement,
-            childrenPropsHash: wipFiberParent.childrenPropsHash,
-            ownPropsHash: wipFiberParent.ownPropsHash,
         };
 
         // Patch the fiber that's pointing to this fiber
@@ -535,7 +527,7 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
         let newFiber: MaybeFiber;
         const childElement = elements[newElementIndex] as JSXElement | undefined;
         const oldFiberKey = childElement?.props.key ?? newElementIndex;
-        const oldFiber = oldFibersMapByKey.get(oldFiberKey);
+        const oldFiberByKey = oldFibersMapByKey.get(oldFiberKey);
         const oldFiberSequential = oldFibers[newElementIndex];
 
         const isSameType = oldFiber?.type === childElement?.type;
@@ -549,26 +541,21 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
 
         // Same node, update props.
         if (oldFiber && childElement && isSameType) {
-            let isSameElementOrProps =
-                isSameElement ||
-                childElement.childrenPropsHash === oldFiberSequential.childrenPropsHash;
-
+            const didChangePosition = oldFiber !== oldFiberByKey;
             newFiber = {
                 type: childElement.type,
                 parent: wipFiberParent,
-                child: isSameElementOrProps ? oldFiber.child : undefined,
-                sibling: isSameElementOrProps ? oldFiber.sibling : undefined,
-                alternate: oldFiberSequential,
+                child: isSameElement ? oldFiber.child : undefined,
+                sibling: isSameElement ? oldFiber.sibling : undefined,
+                alternate: oldFiber,
                 isAlternate: false,
-                dom: oldFiberSequential.dom,
-                hooks: oldFiber.hooks,
-                effectTag: isSameElementOrProps ? EffectTag.skip : EffectTag.update,
+                dom: oldFiber.dom,
+                hooks: didChangePosition ? oldFiberByKey?.hooks ?? [] : oldFiber.hooks,
+                effectTag: isSameElement ? EffectTag.skip : EffectTag.update,
                 props: childElement.props,
                 version: oldFiber.version + 1,
                 childElements: [],
                 fromElement: childElement,
-                childrenPropsHash: childElement.childrenPropsHash,
-                ownPropsHash: childElement.ownPropsHash,
             };
         }
         // Brand new node.
@@ -587,8 +574,6 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
                 version: 0,
                 childElements: [],
                 fromElement: childElement,
-                childrenPropsHash: childElement.childrenPropsHash,
-                ownPropsHash: childElement.ownPropsHash,
             };
         }
 

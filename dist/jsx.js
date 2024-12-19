@@ -1,4 +1,3 @@
-import { getPropsHash } from './hash.js';
 import { EMPTY_ARR } from './constants.js';
 export const TEXT_ELEMENT = 'TEXT';
 /**
@@ -19,10 +18,7 @@ function prepareChildren(elements, children = []) {
             continue;
         }
         if (typeof element === 'string' || typeof element === 'number') {
-            const ownPropsHash = String(element);
             children.push({
-                ownPropsHash,
-                childrenPropsHash: ownPropsHash,
                 type: TEXT_ELEMENT,
                 props: { nodeValue: element },
             });
@@ -33,24 +29,11 @@ function prepareChildren(elements, children = []) {
 /**
  * Creates a new JSX element with the specified type, props, and children.
  */
-export function jsx(_type, _props, ..._children) {
-    let children = _children;
-    const props = _props ?? {};
-    const ownPropsHash = getPropsHash(props);
-    let childrenPropsHash = ownPropsHash;
-    if (!props.children) {
-        children = prepareChildren(children) ?? EMPTY_ARR;
-        for (const child of children) {
-            childrenPropsHash =
-                childrenPropsHash + child.childrenPropsHash;
-        }
-    }
+export function jsx(type, props, ...children) {
     return {
-        ownPropsHash,
-        childrenPropsHash,
-        type: _type,
+        type,
         props: Object.assign(props ?? {}, {
-            children: props?.children || children,
+            children: props?.children ?? prepareChildren(children) ?? EMPTY_ARR,
         }),
     };
 }

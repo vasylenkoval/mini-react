@@ -20,7 +20,6 @@ const FAKE_DOM: FAKEDOM = {
 };
 
 const dispatchRef: { current: BenchDispatch | null } = { current: null };
-console.profile('bench-10k');
 const start = performance.now();
 createRoot(void 0 as any, <BenchMain dispatchRef={dispatchRef} />, FAKE_DOM);
 if (!dispatchRef.current) {
@@ -33,8 +32,12 @@ dispatchRef.current({ type: 'UPDATE' });
 dispatchRef.current({ type: 'UPDATE' });
 dispatchRef.current({ type: 'UPDATE' });
 dispatchRef.current({ type: 'UPDATE' });
+dispatchRef.current({ type: 'UPDATE' });
+dispatchRef.current({ type: 'UPDATE' });
+dispatchRef.current({ type: 'UPDATE' });
+dispatchRef.current({ type: 'UPDATE' });
+dispatchRef.current({ type: 'UPDATE' });
 
 const end = performance.now();
 
-console.log(`bench-10k: took ${end - start} ms`);
-console.profileEnd('bench-10k');
+console.log(`bench-1k: took ${end - start} ms`);

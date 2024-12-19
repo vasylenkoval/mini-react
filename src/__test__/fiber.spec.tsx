@@ -356,7 +356,7 @@ describe('fiber', () => {
         /* Act */
         createRoot(rootElement, <App />);
         populate(itemsArr);
-        const newArr = itemsArr.slice().reverse();
+        let newArr = itemsArr.slice().reverse();
         populate(newArr);
 
         /* Assert */
@@ -365,41 +365,23 @@ describe('fiber', () => {
                 .map((id) => `<div>${id}</div>`)
                 .join('')}</div></div>`
         );
-    });
 
-    it('should not re-render if props have not changed because of hashing', () => {
-        /* Arrange */
-        const rootElement = document.createElement('div');
+        // Re-shuffle
+        newArr = [newArr.at(-1)!, ...newArr.slice(1, newArr.length - 1), newArr.at(0)!];
+        populate(newArr);
+        expect(rootElement.innerHTML).toBe(
+            `<div id="root"><div id="header">List</div><div id="list">${newArr
+                .map((id) => `<div>${id}</div>`)
+                .join('')}</div></div>`
+        );
 
-        let childRerenders = 0;
-        const Item = (props: { index: number }) => {
-            childRerenders++;
-            return <div id={`item-${props.index}`}>{props.index}</div>;
-        };
-        const itemsArr = Array.from({ length: 10 }, (_, index) => index);
-        let populate = (_itemsArr: number[]) => {};
-        const App = () => {
-            const [items, setItems] = useState<number[]>([]);
-            populate = (itemsArr) => setItems(itemsArr);
-
-            return (
-                <div id="root">
-                    <div id="header">List</div>
-                    <div id="list">
-                        {items.map((index) => (
-                            <Item index={index} />
-                        ))}
-                    </div>
-                </div>
-            );
-        };
-
-        /* Act */
-        createRoot(rootElement, <App />);
-        populate(itemsArr);
-        populate([...itemsArr]);
-
-        /* Assert */
-        expect(childRerenders).toEqual(10);
+        // Remove elements
+        newArr = newArr.filter((num) => num !== 5 && num !== 7);
+        populate(newArr);
+        expect(rootElement.innerHTML).toBe(
+            `<div id="root"><div id="header">List</div><div id="list">${newArr
+                .map((id) => `<div>${id}</div>`)
+                .join('')}</div></div>`
+        );
     });
 });
