@@ -220,6 +220,7 @@ function commitFiber(fiber: Fiber): MaybeAfterCommitFunc {
     let afterCommit: MaybeAfterCommitFunc;
 
     if (fiber.effectTag === EffectTag.delete) {
+        debugger;
         // Collect all of the useEffect cleanup functions to run after delete.
         let nextComponentChildFiber: MaybeFiber = fiber;
         while (nextComponentChildFiber) {
@@ -252,9 +253,11 @@ function commitFiber(fiber: Fiber): MaybeAfterCommitFunc {
             ? fiber.sibling?.dom ?? findNextFiber(fiber.sibling, fiber, (f) => !!f.dom)?.dom ?? null
             : null;
 
-        afterCommit = () => {
-            DOM.insertBefore(parentDom, closestChildDom!, closestNextSiblingDom);
-        };
+        if (closestChildDom && parentDom) {
+            afterCommit = () => {
+                DOM.insertBefore(parentDom, closestChildDom, closestNextSiblingDom);
+            };
+        }
     }
 
     if (!(fiber.dom && fiber.parent) || fiber.effectTag === EffectTag.skip) {
@@ -329,7 +332,6 @@ function workloop(remainingMs: () => number) {
         commitRoot();
     }
 
-    // Pick next components to render.
     const nextComponent = pickNextComponentToRender();
     if (nextComponent) {
         wipRoot = nextComponent;
@@ -473,6 +475,8 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
         !!wipFiberParent.alternate &&
         !!wipFiberParent.alternate.child
     ) {
+        wipFiberParent.effectTag = EffectTag.add;
+
         const recreatedFiber = {
             type: wipFiberParent.type,
             parent: wipFiberParent.parent,
@@ -511,9 +515,6 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
 
         if (success) {
             processDomFiber(recreatedFiber as Fiber<string>);
-            // If fiber is a dom fiber and has no child elements, while previous fiber had elements
-            // we can bail out of doing a full diff and instead delete all old elements in one go
-            // by just recreating this fiber.
             wipFiberParent.alternate = undefined;
             wipFiberParent.isAlternate = true;
             wipFiberParent.effectTag = EffectTag.delete;

@@ -9,7 +9,7 @@ export type StateHook<T> = {
     type: HookTypes.state;
     notify: () => void;
     value: T;
-    next?: { value: T };
+    pending?: { value: T };
     setter: (value: T | ((prev: T) => T)) => void;
 };
 
@@ -66,9 +66,9 @@ export function processHooks(
 ) {
     // Flush state updates
     for (const hook of hooks) {
-        if (hook.type === HookTypes.state && hook.next) {
-            hook.value = hook.next.value;
-            hook.next = undefined;
+        if (hook.type === HookTypes.state && hook.pending) {
+            hook.value = hook.pending.value;
+            hook.pending = undefined;
         }
     }
     current.hooks = hooks;
@@ -97,11 +97,11 @@ export function useState<T>(
         notify: current.notifyOnStateChange,
         value: typeof initState === 'function' ? (initState as () => T)() : initState,
         setter(value) {
-            let lastValue = hook.next ? hook.next.value : hook.value;
+            let lastValue = hook.pending ? hook.pending.value : hook.value;
             let setterFn = typeof value === 'function' ? (value as (prev: T) => T) : undefined;
-            let nextValue = setterFn ? setterFn(lastValue) : (value as T);
-            if (nextValue === lastValue) return;
-            hook.next = { value: nextValue };
+            let pendingValue = setterFn ? setterFn(lastValue) : (value as T);
+            if (pendingValue === lastValue) return;
+            hook.pending = { value: pendingValue };
             hook.notify();
         },
     };

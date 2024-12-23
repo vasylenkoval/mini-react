@@ -1,6 +1,6 @@
 /** @jsx jsx */
 import { createRoot } from '../fiber';
-import { useMemo, useState } from '../hooks';
+import { useMemo, useState, useEffect } from '../hooks';
 import { jsx, JSXElement } from '../jsx';
 import { memo } from '../memo';
 
@@ -385,6 +385,246 @@ describe('fiber', () => {
             `<div id="root"><div id="header">List</div><div id="list">${newArr
                 .map((id) => `<div>${id}</div>`)
                 .join('')}</div></div>`
+        );
+    });
+
+    it('should handle useEffect correctly', () => {
+        /* Arrange */
+        const rootElement = document.createElement('div');
+        let rerender = () => {};
+        let unmount = () => {};
+
+        let invocations: string[] = [];
+        const recordInvocation = (id: string) => invocations.push(id);
+
+        const ChildWithEffects = ({ count }: { count: number }) => {
+            useEffect(() => {
+                recordInvocation('child-1');
+                return () => {
+                    recordInvocation('child-1-cleanup');
+                };
+            }, []);
+
+            useEffect(() => {
+                recordInvocation('child-2');
+                return () => {
+                    recordInvocation('child-2-cleanup');
+                };
+            }, [count]);
+
+            useEffect(() => {
+                recordInvocation('child-3');
+                return () => {
+                    recordInvocation('child-3-cleanup');
+                };
+            });
+
+            return <div>Effects</div>;
+        };
+
+        const App = () => {
+            const [count, setCount] = useState(0);
+            const [mounted, setMounted] = useState(true);
+            unmount = () => setMounted(false);
+            rerender = () => setCount((count) => ++count);
+
+            useEffect(() => {
+                recordInvocation('parent-1');
+                return () => {
+                    recordInvocation('parent-1-cleanup');
+                };
+            }, []);
+
+            useEffect(() => {
+                recordInvocation('parent-2');
+                return () => {
+                    recordInvocation('parent-2-cleanup');
+                };
+            }, [count]);
+
+            useEffect(() => {
+                recordInvocation('parent-3');
+                return () => {
+                    recordInvocation('parent-3-cleanup');
+                };
+            });
+
+            return <div>{mounted && <ChildWithEffects count={count} />}</div>;
+        };
+
+        /* Act / Assert */
+        createRoot(rootElement, <App />);
+
+        // First render
+        const expectedInvocations1 = [
+            'child-3',
+            'child-2',
+            'child-1',
+            'parent-3',
+            'parent-2',
+            'parent-1',
+        ];
+        expect(invocations).toEqual(expectedInvocations1);
+
+        // Second render
+        rerender();
+        const expectedInvocations2: string[] = [
+            'child-3-cleanup',
+            'child-2-cleanup',
+            'parent-3-cleanup',
+            'parent-2-cleanup',
+            'child-3',
+            'child-2',
+            'parent-3',
+            'parent-2',
+        ];
+        expect(invocations).toEqual([...expectedInvocations1, ...expectedInvocations2]);
+
+        // Unmount
+        unmount();
+        const expectedInvocations3 = [''];
+        expect(invocations).toEqual([
+            ...expectedInvocations1,
+            ...expectedInvocations2,
+            ...expectedInvocations3,
+        ]);
+    });
+
+    it('should handle useMemo correctly', () => {
+        /* Arrange */
+        const rootElement = document.createElement('div');
+        let computeCount = 0;
+
+        const App = () => {
+            const memoizedValue = useMemo(() => {
+                computeCount++;
+                return 'memoized';
+            }, []);
+            return <div>{memoizedValue}</div>;
+        };
+
+        /* Act */
+        createRoot(rootElement, <App />);
+
+        /* Assert */
+        expect(computeCount).toBe(1);
+        expect(rootElement.innerHTML).toBe('<div>memoized</div>');
+    });
+
+    it('should handle useState with objects', () => {
+        /* Arrange */
+        const rootElement = document.createElement('div');
+
+        const App = () => {
+            const [state, setState] = useState({ count: 0 });
+            return <div onClick={() => setState({ count: state.count + 1 })}>{state.count}</div>;
+        };
+
+        /* Act */
+        createRoot(rootElement, <App />);
+        rootElement.firstChild?.dispatchEvent(new Event('click'));
+        rootElement.firstChild?.dispatchEvent(new Event('click'));
+
+        /* Assert */
+        expect(rootElement.innerHTML).toBe('<div>2</div>');
+    });
+
+    it('should handle nested components with state', () => {
+        /* Arrange */
+        const rootElement = document.createElement('div');
+
+        const Child = () => {
+            const [count, setCount] = useState(0);
+            return <div onClick={() => setCount(count + 1)}>Child {count}</div>;
+        };
+
+        const Parent = () => {
+            return (
+                <div>
+                    <Child />
+                </div>
+            );
+        };
+
+        /* Act */
+        createRoot(rootElement, <Parent />);
+        rootElement.firstChild!.firstChild!.dispatchEvent(new Event('click'));
+
+        /* Assert */
+        expect(rootElement.innerHTML).toBe('<div><div>Child 1</div></div>');
+    });
+
+    it('should handle memoized components', () => {
+        /* Arrange */
+        const rootElement = document.createElement('div');
+        let renderCount = 0;
+
+        const Child = memo(() => {
+            renderCount++;
+            return <div>Child</div>;
+        });
+
+        const App = () => {
+            const [count, setCount] = useState(0);
+            return (
+                <div onClick={() => setCount(count + 1)}>
+                    <Child />
+                    {count}
+                </div>
+            );
+        };
+
+        /* Act */
+        createRoot(rootElement, <App />);
+        rootElement.firstChild?.dispatchEvent(new Event('click'));
+        rootElement.firstChild?.dispatchEvent(new Event('click'));
+
+        /* Assert */
+        expect(renderCount).toBe(1);
+        expect(rootElement.innerHTML).toBe('<div><div>Child</div>2</div>');
+    });
+
+    it('should handle conditional rendering', () => {
+        /* Arrange */
+        const rootElement = document.createElement('div');
+
+        const App = () => {
+            const [show, setShow] = useState(true);
+            return (
+                <div onClick={() => setShow(!show)}>{show ? <div>Show</div> : <div>Hide</div>}</div>
+            );
+        };
+
+        /* Act */
+        createRoot(rootElement, <App />);
+        rootElement.firstChild?.dispatchEvent(new Event('click'));
+
+        /* Assert */
+        expect(rootElement.innerHTML).toBe('<div><div>Hide</div></div>');
+    });
+
+    it('should handle array of elements', () => {
+        /* Arrange */
+        const rootElement = document.createElement('div');
+
+        const App = () => {
+            const [items, setItems] = useState([1, 2, 3]);
+            return (
+                <div onClick={() => setItems([...items, items.length + 1])}>
+                    {items.map((item) => (
+                        <div key={item}>{item}</div>
+                    ))}
+                </div>
+            );
+        };
+
+        /* Act */
+        createRoot(rootElement, <App />);
+        rootElement.firstChild?.dispatchEvent(new Event('click'));
+
+        /* Assert */
+        expect(rootElement.innerHTML).toBe(
+            '<div><div>1</div><div>2</div><div>3</div><div>4</div></div>'
         );
     });
 });
