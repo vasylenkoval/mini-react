@@ -2,6 +2,7 @@
 import { createRoot } from '../fiber';
 import { useMemo, useState } from '../hooks';
 import { jsx, JSXElement } from '../jsx';
+import { memo } from '../memo';
 
 describe('fiber', () => {
     it('should render a simple app', () => {
@@ -203,7 +204,9 @@ describe('fiber', () => {
         createRoot(rootElement, <Parent />);
 
         rerender();
+        debugger;
         rerender();
+        debugger;
         rerenderChild();
 
         /* Assert */
@@ -335,7 +338,7 @@ describe('fiber', () => {
             return <div>{count}</div>;
         };
 
-        const itemsArr = Array.from({ length: 10 }, (_, index) => index);
+        const itemsArr = [1, 2, 3, 4, 5];
         let populate = (_itemsArr: number[]) => {};
 
         const App = () => {
@@ -356,7 +359,7 @@ describe('fiber', () => {
         /* Act */
         createRoot(rootElement, <App />);
         populate(itemsArr);
-        let newArr = itemsArr.slice().reverse();
+        let newArr = [5, 4, 3, 2, 1];
         populate(newArr);
 
         /* Assert */
@@ -367,7 +370,7 @@ describe('fiber', () => {
         );
 
         // Re-shuffle
-        newArr = [newArr.at(-1)!, ...newArr.slice(1, newArr.length - 1), newArr.at(0)!];
+        newArr = [1, 4, 3, 2, 5];
         populate(newArr);
         expect(rootElement.innerHTML).toBe(
             `<div id="root"><div id="header">List</div><div id="list">${newArr
@@ -375,8 +378,8 @@ describe('fiber', () => {
                 .join('')}</div></div>`
         );
 
-        // Remove elements
-        newArr = newArr.filter((num) => num !== 5 && num !== 7);
+        // Remove elements and re-shuffle
+        newArr = [1, 3, 2];
         populate(newArr);
         expect(rootElement.innerHTML).toBe(
             `<div id="root"><div id="header">List</div><div id="list">${newArr
