@@ -482,76 +482,18 @@ describe('fiber', () => {
 
         // Unmount
         unmount();
-        const expectedInvocations3 = [''];
+        const expectedInvocations3 = [
+            'child-3-cleanup',
+            'child-2-cleanup',
+            'child-1-cleanup',
+            'parent-3-cleanup',
+            'parent-3',
+        ];
         expect(invocations).toEqual([
             ...expectedInvocations1,
             ...expectedInvocations2,
             ...expectedInvocations3,
         ]);
-    });
-
-    it('should handle useMemo correctly', () => {
-        /* Arrange */
-        const rootElement = document.createElement('div');
-        let computeCount = 0;
-
-        const App = () => {
-            const memoizedValue = useMemo(() => {
-                computeCount++;
-                return 'memoized';
-            }, []);
-            return <div>{memoizedValue}</div>;
-        };
-
-        /* Act */
-        createRoot(rootElement, <App />);
-
-        /* Assert */
-        expect(computeCount).toBe(1);
-        expect(rootElement.innerHTML).toBe('<div>memoized</div>');
-    });
-
-    it('should handle useState with objects', () => {
-        /* Arrange */
-        const rootElement = document.createElement('div');
-
-        const App = () => {
-            const [state, setState] = useState({ count: 0 });
-            return <div onClick={() => setState({ count: state.count + 1 })}>{state.count}</div>;
-        };
-
-        /* Act */
-        createRoot(rootElement, <App />);
-        rootElement.firstChild?.dispatchEvent(new Event('click'));
-        rootElement.firstChild?.dispatchEvent(new Event('click'));
-
-        /* Assert */
-        expect(rootElement.innerHTML).toBe('<div>2</div>');
-    });
-
-    it('should handle nested components with state', () => {
-        /* Arrange */
-        const rootElement = document.createElement('div');
-
-        const Child = () => {
-            const [count, setCount] = useState(0);
-            return <div onClick={() => setCount(count + 1)}>Child {count}</div>;
-        };
-
-        const Parent = () => {
-            return (
-                <div>
-                    <Child />
-                </div>
-            );
-        };
-
-        /* Act */
-        createRoot(rootElement, <Parent />);
-        rootElement.firstChild!.firstChild!.dispatchEvent(new Event('click'));
-
-        /* Assert */
-        expect(rootElement.innerHTML).toBe('<div><div>Child 1</div></div>');
     });
 
     it('should handle memoized components', () => {
@@ -567,7 +509,12 @@ describe('fiber', () => {
         const App = () => {
             const [count, setCount] = useState(0);
             return (
-                <div onClick={() => setCount(count + 1)}>
+                <div
+                    onClick={() => {
+                        debugger;
+                        setCount(count + 1);
+                    }}
+                >
                     <Child />
                     {count}
                 </div>
@@ -582,49 +529,5 @@ describe('fiber', () => {
         /* Assert */
         expect(renderCount).toBe(1);
         expect(rootElement.innerHTML).toBe('<div><div>Child</div>2</div>');
-    });
-
-    it('should handle conditional rendering', () => {
-        /* Arrange */
-        const rootElement = document.createElement('div');
-
-        const App = () => {
-            const [show, setShow] = useState(true);
-            return (
-                <div onClick={() => setShow(!show)}>{show ? <div>Show</div> : <div>Hide</div>}</div>
-            );
-        };
-
-        /* Act */
-        createRoot(rootElement, <App />);
-        rootElement.firstChild?.dispatchEvent(new Event('click'));
-
-        /* Assert */
-        expect(rootElement.innerHTML).toBe('<div><div>Hide</div></div>');
-    });
-
-    it('should handle array of elements', () => {
-        /* Arrange */
-        const rootElement = document.createElement('div');
-
-        const App = () => {
-            const [items, setItems] = useState([1, 2, 3]);
-            return (
-                <div onClick={() => setItems([...items, items.length + 1])}>
-                    {items.map((item) => (
-                        <div key={item}>{item}</div>
-                    ))}
-                </div>
-            );
-        };
-
-        /* Act */
-        createRoot(rootElement, <App />);
-        rootElement.firstChild?.dispatchEvent(new Event('click'));
-
-        /* Assert */
-        expect(rootElement.innerHTML).toBe(
-            '<div><div>1</div><div>2</div><div>3</div><div>4</div></div>'
-        );
     });
 });

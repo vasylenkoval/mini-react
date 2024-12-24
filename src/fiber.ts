@@ -466,8 +466,9 @@ function findNextFiber(
  * @param elements - Child elements.
  */
 function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
-    // If fiber is a dom fiber and was previously committed and has no child elements and previous fiber had elements
-    // we can bail out of doing a full diff, instead we can just recreate the current wip fiber.
+    // If fiber is a dom fiber and was previously committed and currently has no child elements
+    // but previous fiber had elements we can bail out of doing a full diff, instead just recreate
+    // the current wip fiber.
     if (
         !elements.length &&
         !!wipFiberParent.dom &&
@@ -476,51 +477,9 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
         !!wipFiberParent.alternate.child
     ) {
         wipFiberParent.effectTag = EffectTag.add;
-
-        const recreatedFiber = {
-            type: wipFiberParent.type,
-            parent: wipFiberParent.parent,
-            child: undefined,
-            sibling: wipFiberParent.sibling,
-            alternate: wipFiberParent,
-            isAlternate: false,
-            dom: undefined,
-            hooks: wipFiberParent.hooks,
-            effectTag: EffectTag.add,
-            props: wipFiberParent.props,
-            version: wipFiberParent.version + 1,
-            childElements: [],
-            fromElement: wipFiberParent.fromElement,
-        };
-
-        // Patch the fiber that's pointing to this fiber
-        let success = false;
-        let pointingFiber: Fiber = wipFiberParent.parent!;
-        if (pointingFiber && pointingFiber.child === wipFiberParent) {
-            pointingFiber.child = recreatedFiber;
-            success = true;
-        } else if (pointingFiber.child) {
-            pointingFiber = pointingFiber.child;
-            while (pointingFiber.sibling !== wipFiberParent) {
-                if (!pointingFiber.sibling) {
-                    break;
-                }
-                pointingFiber = pointingFiber.sibling;
-            }
-            if (pointingFiber.sibling === wipFiberParent) {
-                pointingFiber.sibling = recreatedFiber;
-                success = true;
-            }
-        }
-
-        if (success) {
-            processDomFiber(recreatedFiber as Fiber<string>);
-            wipFiberParent.alternate = undefined;
-            wipFiberParent.isAlternate = true;
-            wipFiberParent.effectTag = EffectTag.delete;
-            deletions.push(wipFiberParent);
-            return;
-        }
+        wipFiberParent.childElements = [];
+        wipFiberParent.child = undefined;
+        deletions.push(wipFiberParent.alternate);
     }
 
     // Collect all old fibers by key.
@@ -558,10 +517,12 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
 
         // Same node, update props.
         if (oldFiberByKey && childElement && isSameTypeByKey) {
-            // TODO: figure out if it's okay to mutate just the flags?
+            // TODO: This is mutating an existing fiber in current tree,
+            // need to figure out how to handle this better.
             if (isSameElementByKey) {
                 oldFiberByKey.effectTag = EffectTag.skip;
                 oldFiberByKey.didChangePos = oldFiberSeq !== oldFiberByKey;
+                oldFiberByKey.parent = wipFiberParent;
                 newFiber = oldFiberByKey;
             } else {
                 newFiber = {
