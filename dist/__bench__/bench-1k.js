@@ -8,6 +8,7 @@ const FAKE_DOM = {
     removeChild: () => void 0,
     replaceWith: () => void 0,
     appendChild: () => void 0,
+    insertBefore: () => void 0,
 };
 const dispatchRef = { current: null };
 const start = performance.now();

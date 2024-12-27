@@ -121,7 +121,7 @@ const App = () => {
             jsx("input", { value: name, style: "padding: 10px;", id: "name", onInput: (e) => setName(e.target.value) }),
             jsx("br", null),
             jsx("label", { style: "display: block", htmlFor: "age" }, "Your age"),
-            jsx("input", { value: age, style: "padding: 10px;", type: "number", id: "age", onInput: (e) => setAge(+e.target.value) }))));
+            jsx("input", { value: +age, style: "padding: 10px;", type: "number", id: "age", onInput: (e) => setAge(+e.target.value) }))));
 };
 if (root) {
     createRoot(root, jsx(App, null));

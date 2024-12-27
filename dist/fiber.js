@@ -53,6 +53,7 @@ export function createRoot(root, element, fakeDom) {
         dom: root,
         hooks: [],
         effectTag: EffectTag.add,
+        didChangePos: false,
         props: {
             children: [element],
         },
@@ -136,10 +137,7 @@ function commitRoot() {
  * @param fiber - Fiber to commit.
  */
 function commitFiber(fiber) {
-    // No work to be done here, nothing changed.
-    if (fiber.effectTag === EffectTag.skip) {
-        return;
-    }
+    let afterCommit;
     if (fiber.effectTag === EffectTag.delete) {
         // Collect all of the useEffect cleanup functions to run after delete.
         let nextComponentChildFiber = fiber;
@@ -155,15 +153,34 @@ function commitFiber(fiber) {
             DOM.removeChild(closestChildDOM.parentNode, closestChildDOM);
         }
     }
-    if (!(fiber.dom && fiber.parent)) {
-        return;
+    if (fiber.didChangePos) {
+        // Find closest parent that's not a component.
+        let parentWithDom = fiber.parent;
+        while (!parentWithDom?.dom) {
+            parentWithDom = parentWithDom?.parent;
+        }
+        const parentDom = parentWithDom.dom;
+        const closestChildDom = fiber.dom ?? findNextFiber(fiber, fiber, (f) => !!f.dom)?.dom;
+        const closestNextSiblingDom = fiber.sibling
+            ? fiber.sibling?.dom ?? findNextFiber(fiber.sibling, fiber, (f) => !!f.dom)?.dom ?? null
+            : null;
+        if (closestChildDom && parentDom) {
+            afterCommit = () => {
+                DOM.insertBefore(parentDom, closestChildDom, closestNextSiblingDom);
+            };
+        }
+    }
+    if (!(fiber.dom && fiber.parent) || fiber.effectTag === EffectTag.skip) {
+        return afterCommit;
     }
     // Find closest parent that's not a component.
     let parentWithDom = fiber.parent;
     while (!parentWithDom.dom) {
         parentWithDom = parentWithDom.parent;
     }
-    let afterCommit;
+    if (fiber.effectTag === EffectTag.update) {
+        DOM.addProps(fiber.dom, fiber.props, fiber.alternate?.props);
+    }
     if (fiber.effectTag === EffectTag.add) {
         const parent = parentWithDom.dom;
         const child = fiber.dom;
@@ -177,9 +194,6 @@ function commitFiber(fiber) {
         else {
             DOM.appendChild(parent, child);
         }
-    }
-    if (fiber.effectTag === EffectTag.update) {
-        DOM.addProps(fiber.dom, fiber.props, fiber.alternate?.props);
     }
     return afterCommit;
 }
@@ -197,10 +211,20 @@ function pickNextComponentToRender() {
         return pickNextComponentToRender();
     }
     return {
-        ...componentFiber,
+        type: componentFiber.type,
+        parent: componentFiber.parent,
+        child: componentFiber.child,
+        sibling: componentFiber.sibling,
         alternate: componentFiber,
+        isAlternate: false,
+        dom: componentFiber.dom,
+        hooks: componentFiber.hooks,
         effectTag: EffectTag.update,
+        didChangePos: false,
+        props: componentFiber.props,
         version: componentFiber.version + 1,
+        childElements: componentFiber.childElements,
+        fromElement: componentFiber.fromElement,
     };
 }
 /**
@@ -216,7 +240,6 @@ function workloop(remainingMs) {
     if (!nextUnitOfWork && wipRoot) {
         commitRoot();
     }
-    // Pick next components to render.
     const nextComponent = pickNextComponentToRender();
     if (nextComponent) {
         wipRoot = nextComponent;
@@ -331,59 +354,18 @@ function findNextFiber(currFiber, root, predicate) {
  * @param elements - Child elements.
  */
 function diffChildren(wipFiberParent, elements) {
-    // If fiber is a dom fiber and was previously commited and has no child elements and previous fiber had elements
-    // we can bail out of doing a full diff, instead we can just recreate the current wip fiber.
+    // If fiber is a dom fiber and was previously committed and currently has no child elements
+    // but previous fiber had elements we can bail out of doing a full diff, instead just recreate
+    // the current wip fiber.
     if (!elements.length &&
         !!wipFiberParent.dom &&
         !!wipFiberParent.parent &&
         !!wipFiberParent.alternate &&
         !!wipFiberParent.alternate.child) {
-        const recreatedFiber = {
-            type: wipFiberParent.type,
-            parent: wipFiberParent.parent,
-            child: undefined,
-            sibling: wipFiberParent.sibling,
-            alternate: wipFiberParent,
-            isAlternate: false,
-            dom: undefined,
-            hooks: wipFiberParent.hooks,
-            effectTag: EffectTag.add,
-            props: wipFiberParent.props,
-            version: wipFiberParent.version + 1,
-            childElements: [],
-            fromElement: wipFiberParent.fromElement,
-        };
-        // Patch the fiber that's pointing to this fiber
-        let success = false;
-        let pointingFiber = wipFiberParent.parent;
-        if (pointingFiber && pointingFiber.child === wipFiberParent) {
-            pointingFiber.child = recreatedFiber;
-            success = true;
-        }
-        else if (pointingFiber.child) {
-            pointingFiber = pointingFiber.child;
-            while (pointingFiber.sibling !== wipFiberParent) {
-                if (!pointingFiber.sibling) {
-                    break;
-                }
-                pointingFiber = pointingFiber.sibling;
-            }
-            if (pointingFiber.sibling === wipFiberParent) {
-                pointingFiber.sibling = recreatedFiber;
-                success = true;
-            }
-        }
-        if (success) {
-            processDomFiber(recreatedFiber);
-            // If fiber is a dom fiber and has no child elements, while previous fiber had elements
-            // we can bail out of doing a full diff and insted delete all old elements in one go
-            // by just recreating this fiber.
-            wipFiberParent.alternate = undefined;
-            wipFiberParent.isAlternate = true;
-            wipFiberParent.effectTag = EffectTag.delete;
-            deletions.push(wipFiberParent);
-            return;
-        }
+        wipFiberParent.effectTag = EffectTag.add;
+        wipFiberParent.childElements = [];
+        wipFiberParent.child = undefined;
+        deletions.push(wipFiberParent.alternate);
     }
     // Collect all old fibers by key.
     const oldFibersMapByKey = new Map();
@@ -392,7 +374,7 @@ function diffChildren(wipFiberParent, elements) {
     let nextOldFiberIndex = 0;
     while (nextOldFiber) {
         oldFibers.push(nextOldFiber);
-        oldFibersMapByKey.set(nextOldFiber?.fromElement.props.key ?? nextOldFiberIndex, nextOldFiber);
+        oldFibersMapByKey.set(nextOldFiber?.fromElement.key ?? nextOldFiberIndex, nextOldFiber);
         nextOldFiber = nextOldFiber.sibling;
         nextOldFiberIndex++;
     }
@@ -401,37 +383,47 @@ function diffChildren(wipFiberParent, elements) {
     while (newElementIndex < elements.length) {
         let newFiber;
         const childElement = elements[newElementIndex];
-        const oldFiberKey = childElement?.props.key ?? newElementIndex;
+        const oldFiberKey = childElement?.key ?? newElementIndex;
         const oldFiberByKey = oldFibersMapByKey.get(oldFiberKey);
-        const oldFiber = oldFibers[newElementIndex];
-        const isSameType = oldFiber?.type === childElement?.type;
-        const isSameElement = childElement === oldFiber?.fromElement;
+        const oldFiberSeq = oldFibers[newElementIndex];
+        const isSameTypeByKey = oldFiberByKey?.type === childElement?.type;
+        const isSameElementByKey = oldFiberByKey?.fromElement === childElement;
         // Only store 2 levels.
-        if (oldFiber && !isSameElement) {
-            oldFiber.alternate = undefined;
-            oldFiber.isAlternate = true;
+        if (oldFiberByKey && !isSameElementByKey) {
+            oldFiberByKey.alternate = undefined;
+            oldFiberByKey.isAlternate = true;
         }
         // Same node, update props.
-        if (oldFiber && childElement && isSameType) {
-            const didChangePosition = oldFiber !== oldFiberByKey;
-            newFiber = {
-                type: childElement.type,
-                parent: wipFiberParent,
-                child: isSameElement ? oldFiber.child : undefined,
-                sibling: isSameElement ? oldFiber.sibling : undefined,
-                alternate: oldFiber,
-                isAlternate: false,
-                dom: oldFiber.dom,
-                hooks: didChangePosition ? oldFiberByKey?.hooks ?? [] : oldFiber.hooks,
-                effectTag: isSameElement ? EffectTag.skip : EffectTag.update,
-                props: childElement.props,
-                version: oldFiber.version + 1,
-                childElements: [],
-                fromElement: childElement,
-            };
+        if (oldFiberByKey && childElement && isSameTypeByKey) {
+            // TODO: This is mutating an existing fiber in current tree,
+            // need to figure out how to handle this better.
+            if (isSameElementByKey) {
+                oldFiberByKey.effectTag = EffectTag.skip;
+                oldFiberByKey.didChangePos = oldFiberSeq !== oldFiberByKey;
+                oldFiberByKey.parent = wipFiberParent;
+                newFiber = oldFiberByKey;
+            }
+            else {
+                newFiber = {
+                    type: childElement.type,
+                    parent: wipFiberParent,
+                    child: undefined,
+                    sibling: undefined,
+                    alternate: oldFiberByKey,
+                    isAlternate: false,
+                    dom: oldFiberByKey.dom,
+                    hooks: oldFiberByKey?.hooks,
+                    effectTag: EffectTag.update,
+                    didChangePos: oldFiberSeq !== oldFiberByKey,
+                    props: childElement.props,
+                    version: oldFiberByKey.version + 1,
+                    childElements: [],
+                    fromElement: childElement,
+                };
+            }
         }
         // Brand new node.
-        if (!isSameType && childElement) {
+        if (!isSameTypeByKey && childElement) {
             newFiber = {
                 type: childElement.type,
                 parent: wipFiberParent,
@@ -442,6 +434,7 @@ function diffChildren(wipFiberParent, elements) {
                 dom: undefined,
                 hooks: [],
                 effectTag: EffectTag.add,
+                didChangePos: false,
                 props: childElement.props,
                 version: 0,
                 childElements: [],
@@ -449,9 +442,9 @@ function diffChildren(wipFiberParent, elements) {
             };
         }
         // Delete old node.
-        if (oldFiber && !isSameType) {
-            oldFiber.effectTag = EffectTag.delete;
-            deletions.push(oldFiber);
+        if (oldFiberByKey && !isSameTypeByKey) {
+            oldFiberByKey.effectTag = EffectTag.delete;
+            deletions.push(oldFiberByKey);
         }
         // Connect siblings.
         if (newElementIndex === 0) {
@@ -462,7 +455,7 @@ function diffChildren(wipFiberParent, elements) {
         }
         prevSibling = newFiber;
         // Old fiber is already a child, iterate until we reach last sibling.
-        if (oldFiber) {
+        if (oldFiberByKey) {
             oldFibersMapByKey.delete(oldFiberKey);
         }
         newElementIndex++;

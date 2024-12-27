@@ -152,7 +152,7 @@ const App = () => {
                     Your age
                 </label>
                 <input
-                    value={age}
+                    value={+age}
                     style="padding: 10px;"
                     type="number"
                     id="age"

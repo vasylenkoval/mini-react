@@ -8,6 +8,7 @@ type FAKEDOM = {
     removeChild: (parent: Node, child: Node) => void;
     appendChild: (parent: Node, child: Node) => void;
     replaceWith: (oldNode: ChildNode, newNode: Node) => void;
+    insertBefore: (parent: Node, child: Node, before: Node | null) => void;
 };
 
 const emptyObj = {};
@@ -17,6 +18,7 @@ const FAKE_DOM: FAKEDOM = {
     removeChild: () => void 0,
     replaceWith: () => void 0,
     appendChild: () => void 0,
+    insertBefore: () => void 0,
 };
 
 const dispatchRef: { current: BenchDispatch | null } = { current: null };

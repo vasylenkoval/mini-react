@@ -75,4 +75,7 @@ function appendChild(parent, child) {
 function replaceWith(oldNode, newNode) {
     oldNode.replaceWith(newNode);
 }
-export default { createNode, addProps, removeChild, appendChild, replaceWith };
+function insertBefore(parent, node, beforeNode) {
+    parent.insertBefore(node, beforeNode);
+}
+export default { createNode, addProps, removeChild, appendChild, replaceWith, insertBefore };

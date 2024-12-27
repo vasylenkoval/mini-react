@@ -27,9 +27,9 @@ let hookIndex = -1;
 export function processHooks(hooks, notifyOnStateChange, scheduleEffect) {
     // Flush state updates
     for (const hook of hooks) {
-        if (hook.type === HookTypes.state && hook.next) {
-            hook.value = hook.next.value;
-            hook.next = undefined;
+        if (hook.type === HookTypes.state && hook.pending) {
+            hook.value = hook.pending.value;
+            hook.pending = undefined;
         }
     }
     current.hooks = hooks;
@@ -54,12 +54,12 @@ export function useState(initState) {
         notify: current.notifyOnStateChange,
         value: typeof initState === 'function' ? initState() : initState,
         setter(value) {
-            let lastValue = hook.next ? hook.next.value : hook.value;
+            let lastValue = hook.pending ? hook.pending.value : hook.value;
             let setterFn = typeof value === 'function' ? value : undefined;
-            let nextValue = setterFn ? setterFn(lastValue) : value;
-            if (nextValue === lastValue)
+            let pendingValue = setterFn ? setterFn(lastValue) : value;
+            if (pendingValue === lastValue)
                 return;
-            hook.next = { value: nextValue };
+            hook.pending = { value: pendingValue };
             hook.notify();
         },
     };

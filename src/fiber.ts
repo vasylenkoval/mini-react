@@ -121,6 +121,7 @@ export function createRoot(root: Node, element: JSXElement, fakeDom?: typeof REA
         dom: root,
         hooks: [],
         effectTag: EffectTag.add,
+        didChangePos: false,
         props: {
             children: [element],
         },
@@ -220,7 +221,6 @@ function commitFiber(fiber: Fiber): MaybeAfterCommitFunc {
     let afterCommit: MaybeAfterCommitFunc;
 
     if (fiber.effectTag === EffectTag.delete) {
-        debugger;
         // Collect all of the useEffect cleanup functions to run after delete.
         let nextComponentChildFiber: MaybeFiber = fiber;
         while (nextComponentChildFiber) {
@@ -310,10 +310,20 @@ function pickNextComponentToRender(): MaybeFiber {
     }
 
     return {
-        ...componentFiber,
+        type: componentFiber.type,
+        parent: componentFiber.parent,
+        child: componentFiber.child,
+        sibling: componentFiber.sibling,
         alternate: componentFiber,
+        isAlternate: false,
+        dom: componentFiber.dom,
+        hooks: componentFiber.hooks,
         effectTag: EffectTag.update,
+        didChangePos: false,
+        props: componentFiber.props,
         version: componentFiber.version + 1,
+        childElements: componentFiber.childElements,
+        fromElement: componentFiber.fromElement,
     };
 }
 
@@ -489,10 +499,7 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
     let nextOldFiberIndex = 0;
     while (nextOldFiber) {
         oldFibers.push(nextOldFiber);
-        oldFibersMapByKey.set(
-            nextOldFiber?.fromElement.props.key ?? nextOldFiberIndex,
-            nextOldFiber
-        );
+        oldFibersMapByKey.set(nextOldFiber?.fromElement.key ?? nextOldFiberIndex, nextOldFiber);
         nextOldFiber = nextOldFiber.sibling;
         nextOldFiberIndex++;
     }
@@ -503,7 +510,7 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
     while (newElementIndex < elements.length) {
         let newFiber: MaybeFiber;
         const childElement = elements[newElementIndex] as JSXElement | undefined;
-        const oldFiberKey = childElement?.props.key ?? newElementIndex;
+        const oldFiberKey = childElement?.key ?? newElementIndex;
         const oldFiberByKey = oldFibersMapByKey.get(oldFiberKey);
         const oldFiberSeq = oldFibers[newElementIndex];
         const isSameTypeByKey = oldFiberByKey?.type === childElement?.type;
@@ -555,6 +562,7 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
                 dom: undefined,
                 hooks: [],
                 effectTag: EffectTag.add,
+                didChangePos: false,
                 props: childElement.props,
                 version: 0,
                 childElements: [],

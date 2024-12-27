@@ -21,6 +21,7 @@ function prepareChildren(elements, children = []) {
             children.push({
                 type: TEXT_ELEMENT,
                 props: { nodeValue: element },
+                key: undefined,
             });
         }
     }
@@ -30,10 +31,16 @@ function prepareChildren(elements, children = []) {
  * Creates a new JSX element with the specified type, props, and children.
  */
 export function jsx(type, props, ...children) {
+    props = props ?? {
+        children: EMPTY_ARR,
+        key: undefined,
+    };
+    if (children.length > 0) {
+        props.children = prepareChildren(children);
+    }
     return {
         type,
-        props: Object.assign(props ?? {}, {
-            children: props?.children ?? prepareChildren(children) ?? EMPTY_ARR,
-        }),
+        props,
+        key: props.key ?? undefined,
     };
 }

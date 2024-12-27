@@ -204,9 +204,7 @@ describe('fiber', () => {
         createRoot(rootElement, <Parent />);
 
         rerender();
-        debugger;
         rerender();
-        debugger;
         rerenderChild();
 
         /* Assert */
@@ -511,7 +509,6 @@ describe('fiber', () => {
             return (
                 <div
                     onClick={() => {
-                        debugger;
                         setCount(count + 1);
                     }}
                 >

@@ -1,6 +1,6 @@
 import { EMPTY_ARR } from './constants.js';
 
-// @TODO: import a proper definition.
+// @TODO: Piggy back on react typings?
 declare global {
     namespace JSX {
         interface IntrinsicElements {
@@ -13,6 +13,7 @@ export type Primitive = undefined | null | string | number | boolean;
 export type JSXElement = {
     type: string | FC<Props>;
     props: Props;
+    key: string | number | undefined;
 };
 export type Props = { [key: string]: unknown; children?: JSXElement[]; key?: string | number };
 export type FC<T = Props> = (props: T) => JSXElement;
@@ -40,6 +41,7 @@ function prepareChildren(
             children.push({
                 type: TEXT_ELEMENT,
                 props: { nodeValue: element },
+                key: undefined,
             });
         }
     }
@@ -52,13 +54,21 @@ function prepareChildren(
  */
 export function jsx<TProps extends Props | null>(
     type: string | FC,
-    props: TProps,
+    props: any,
     ...children: (JSXElement | Primitive)[]
 ): JSXElement {
+    props = props ?? {
+        children: EMPTY_ARR,
+        key: undefined,
+    };
+
+    if (children.length > 0) {
+        props.children = prepareChildren(children);
+    }
+
     return {
         type,
-        props: Object.assign(props ?? {}, {
-            children: props?.children ?? prepareChildren(children) ?? EMPTY_ARR,
-        }),
+        props,
+        key: props.key ?? undefined,
     };
 }
