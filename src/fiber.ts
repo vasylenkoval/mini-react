@@ -407,7 +407,7 @@ function performUnitOfWork(fiber: Fiber): MaybeFiber {
     if (typeof fiber.type === 'function') {
         processComponentFiber(fiber as Fiber<FC>);
     }
-    diffChildren(fiber, fiber.childElements);
+    diffChildren(fiber);
     return nextFiber(fiber, wipRoot, (f) => f.effectTag !== EffectTag.skip);
 }
 
@@ -475,7 +475,8 @@ function findNextFiber(
  * @param wipFiberParent - Parent fiber to build children for.
  * @param elements - Child elements.
  */
-function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
+function diffChildren(wipFiberParent: Fiber) {
+    const elements = wipFiberParent.childElements;
     // If fiber is a dom fiber and was previously committed and currently has no child elements
     // but previous fiber had elements we can bail out of doing a full diff, instead just recreate
     // the current wip fiber.
