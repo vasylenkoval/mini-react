@@ -490,6 +490,7 @@ function diffChildren(wipFiberParent: Fiber) {
         wipFiberParent.effectTag = EffectTag.add;
         wipFiberParent.childElements = EMPTY_ARR;
         wipFiberParent.child = undefined;
+        wipFiberParent.alternate.effectTag = EffectTag.delete;
         deletions.push(wipFiberParent.alternate);
     }
 
@@ -516,12 +517,6 @@ function diffChildren(wipFiberParent: Fiber) {
         const oldFiberSeq = oldFibers[newElementIndex];
         const isSameTypeByKey = oldFiberByKey?.type === childElement?.type;
         const isSameElementByKey = oldFiberByKey?.fromElement === childElement;
-
-        // Only store 2 levels.
-        if (oldFiberByKey && !isSameElementByKey) {
-            oldFiberByKey.alternate = undefined;
-            oldFiberByKey.isAlternate = true;
-        }
 
         // Same node, update props.
         if (oldFiberByKey && childElement && isSameTypeByKey) {
@@ -551,6 +546,7 @@ function diffChildren(wipFiberParent: Fiber) {
                 };
             }
         }
+
         // Brand new node.
         if (!isSameTypeByKey && childElement) {
             newFiber = {
@@ -575,6 +571,12 @@ function diffChildren(wipFiberParent: Fiber) {
         if (oldFiberByKey && !isSameTypeByKey) {
             oldFiberByKey.effectTag = EffectTag.delete;
             deletions.push(oldFiberByKey);
+        }
+
+        // Only store 2 levels. Edge case, fibers are reused when elements are memoized.
+        if (!!oldFiberByKey && oldFiberByKey !== newFiber) {
+            oldFiberByKey.alternate = undefined;
+            oldFiberByKey.isAlternate = true;
         }
 
         // Connect siblings.
