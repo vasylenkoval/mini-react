@@ -126,7 +126,7 @@ export function createRoot(root: Node, element: JSXElement, fakeDom?: typeof REA
             children: [element],
         },
         version: 0,
-        childElements: [],
+        childElements: EMPTY_ARR,
         fromElement: element,
     };
     nextUnitOfWork = wipRoot;
@@ -487,7 +487,7 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
         !!wipFiberParent.alternate.child
     ) {
         wipFiberParent.effectTag = EffectTag.add;
-        wipFiberParent.childElements = [];
+        wipFiberParent.childElements = EMPTY_ARR;
         wipFiberParent.child = undefined;
         deletions.push(wipFiberParent.alternate);
     }
@@ -545,7 +545,7 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
                     didChangePos: oldFiberSeq !== oldFiberByKey,
                     props: childElement.props,
                     version: oldFiberByKey.version + 1,
-                    childElements: [],
+                    childElements: EMPTY_ARR,
                     fromElement: childElement,
                 };
             }
@@ -565,7 +565,7 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
                 didChangePos: false,
                 props: childElement.props,
                 version: 0,
-                childElements: [],
+                childElements: EMPTY_ARR,
                 fromElement: childElement,
             };
         }

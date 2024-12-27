@@ -58,7 +58,7 @@ export function createRoot(root, element, fakeDom) {
             children: [element],
         },
         version: 0,
-        childElements: [],
+        childElements: EMPTY_ARR,
         fromElement: element,
     };
     nextUnitOfWork = wipRoot;
@@ -363,7 +363,7 @@ function diffChildren(wipFiberParent, elements) {
         !!wipFiberParent.alternate &&
         !!wipFiberParent.alternate.child) {
         wipFiberParent.effectTag = EffectTag.add;
-        wipFiberParent.childElements = [];
+        wipFiberParent.childElements = EMPTY_ARR;
         wipFiberParent.child = undefined;
         deletions.push(wipFiberParent.alternate);
     }
@@ -417,7 +417,7 @@ function diffChildren(wipFiberParent, elements) {
                     didChangePos: oldFiberSeq !== oldFiberByKey,
                     props: childElement.props,
                     version: oldFiberByKey.version + 1,
-                    childElements: [],
+                    childElements: EMPTY_ARR,
                     fromElement: childElement,
                 };
             }
@@ -437,7 +437,7 @@ function diffChildren(wipFiberParent, elements) {
                 didChangePos: false,
                 props: childElement.props,
                 version: 0,
-                childElements: [],
+                childElements: EMPTY_ARR,
                 fromElement: childElement,
             };
         }
