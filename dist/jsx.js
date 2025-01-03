@@ -38,9 +38,10 @@ export function jsx(type, props, ...children) {
     if (children.length > 0) {
         props.children = prepareChildren(children);
     }
-    return {
+    const element = {
         type,
         props,
         key: props.key ?? undefined,
     };
+    return element;
 }

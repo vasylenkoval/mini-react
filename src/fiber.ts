@@ -69,7 +69,7 @@ interface Fiber<T extends string | FC = string | FC> {
     /**
      * Indicates whether the current fiber preserved it's state but got re-ordered.
      */
-    didChangePos?: boolean;
+    didChangePos: boolean;
     /**
      * The props of the fiber.
      */

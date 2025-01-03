@@ -14,6 +14,7 @@ export type JSXElement = {
     type: string | FC<Props>;
     props: Props;
     key: string | number | undefined;
+    serialized?: string;
 };
 export type Props = { [key: string]: unknown; children?: JSXElement[]; key?: string | number };
 export type FC<T = Props> = (props: T) => JSXElement;
@@ -66,9 +67,10 @@ export function jsx<TProps extends Props | null>(
         props.children = prepareChildren(children);
     }
 
-    return {
+    const element: JSXElement = {
         type,
         props,
         key: props.key ?? undefined,
     };
+    return element;
 }

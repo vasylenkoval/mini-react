@@ -31,6 +31,7 @@ if (!dispatchRef.current) {
 dispatchRef.current({ type: 'RUN_LOTS' });
 dispatchRef.current({ type: 'UPDATE' });
 dispatchRef.current({ type: 'UPDATE' });
+debugger;
 dispatchRef.current({ type: 'UPDATE' });
 dispatchRef.current({ type: 'UPDATE' });
 dispatchRef.current({ type: 'UPDATE' });
