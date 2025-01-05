@@ -40,7 +40,7 @@ export type EffectFunc = () => void | CleanupFunc;
 const current: {
     hooks: Hooks;
     notifyOnStateChange: () => void;
-    scheduleEffect: (effect: EffectFunc, prevCleanup?: CleanupFunc) => void;
+    scheduleEffect: (effect: () => void, prevCleanup: (() => void) | null) => void;
 } = {
     hooks: [],
     notifyOnStateChange: () => {},
@@ -116,12 +116,14 @@ export function useState<T>(
  * @param hooks - Hooks array to collect effect cleanups from.
  * @param cleanups - Reference to the array to collect the cleanups in.
  */
-export function collectEffectCleanups(hooks: Hooks, cleanups: CleanupFunc[]) {
+export function collectEffectCleanups(hooks: Hooks) {
+    let cleanupFuncs: CleanupFunc[] | undefined;
     for (let hook of hooks) {
         if (hook.type === HookTypes.effect && hook.cleanup) {
-            cleanups.push(hook.cleanup);
+            (cleanupFuncs ?? (cleanupFuncs = [])).push(hook.cleanup);
         }
     }
+    return cleanupFuncs;
 }
 
 /**
@@ -165,7 +167,7 @@ export function useEffect(effect: EffectFunc, deps?: unknown[]) {
     const oldHook = current.hooks[hookIndex] as EffectHook;
     if (oldHook) {
         if (!areDepsEqual(deps, oldHook.deps)) {
-            scheduleEffect(() => executeEffect(effect, oldHook), oldHook.cleanup);
+            scheduleEffect(() => executeEffect(effect, oldHook), oldHook.cleanup ?? null);
             oldHook.deps = deps;
         }
         return;
@@ -177,7 +179,7 @@ export function useEffect(effect: EffectFunc, deps?: unknown[]) {
     };
 
     current.hooks.push(hook);
-    scheduleEffect(() => executeEffect(effect, hook));
+    scheduleEffect(() => executeEffect(effect, hook), null);
 }
 
 /**

@@ -395,7 +395,32 @@ describe('fiber', () => {
         let invocations: string[] = [];
         const recordInvocation = (id: string) => invocations.push(id);
 
-        const ChildWithEffects = ({ count }: { count: number }) => {
+        const SubChild = ({ count }: { count: number }) => {
+            useEffect(() => {
+                recordInvocation('sub-child-1');
+                return () => {
+                    recordInvocation('sub-child-1-cleanup');
+                };
+            }, []);
+
+            useEffect(() => {
+                recordInvocation('sub-child-2');
+                return () => {
+                    recordInvocation('sub-child-2-cleanup');
+                };
+            }, [count]);
+
+            useEffect(() => {
+                recordInvocation('sub-child-3');
+                return () => {
+                    recordInvocation('sub-child-3-cleanup');
+                };
+            });
+
+            return <div>Effects</div>;
+        };
+
+        const Child = ({ count }: { count: number }) => {
             useEffect(() => {
                 recordInvocation('child-1');
                 return () => {
@@ -417,10 +442,10 @@ describe('fiber', () => {
                 };
             });
 
-            return <div>Effects</div>;
+            return <SubChild count={count} />;
         };
 
-        const App = () => {
+        const Parent = () => {
             const [count, setCount] = useState(0);
             const [mounted, setMounted] = useState(true);
             unmount = () => setMounted(false);
@@ -447,51 +472,59 @@ describe('fiber', () => {
                 };
             });
 
-            return <div>{mounted && <ChildWithEffects count={count} />}</div>;
+            return <div>{mounted && <Child count={count} />}</div>;
         };
 
         /* Act / Assert */
-        createRoot(rootElement, <App />);
+        createRoot(rootElement, <Parent />);
 
         // First render
         const expectedInvocations1 = [
-            'child-3',
-            'child-2',
+            'sub-child-1',
+            'sub-child-2',
+            'sub-child-3',
             'child-1',
-            'parent-3',
-            'parent-2',
+            'child-2',
+            'child-3',
             'parent-1',
+            'parent-2',
+            'parent-3',
         ];
         expect(invocations).toEqual(expectedInvocations1);
 
         // Second render
+        invocations.splice(0);
         rerender();
         const expectedInvocations2: string[] = [
-            'child-3-cleanup',
+            'sub-child-2-cleanup',
+            'sub-child-3-cleanup',
             'child-2-cleanup',
-            'parent-3-cleanup',
+            'child-3-cleanup',
             'parent-2-cleanup',
-            'child-3',
+            'parent-3-cleanup',
+            'sub-child-2',
+            'sub-child-3',
             'child-2',
-            'parent-3',
+            'child-3',
             'parent-2',
+            'parent-3',
         ];
-        expect(invocations).toEqual([...expectedInvocations1, ...expectedInvocations2]);
+        expect(invocations).toEqual(expectedInvocations2);
 
         // Unmount
+        invocations.splice(0);
         unmount();
         const expectedInvocations3 = [
-            'child-3-cleanup',
-            'child-2-cleanup',
+            'sub-child-1-cleanup',
+            'sub-child-2-cleanup',
+            'sub-child-3-cleanup',
             'child-1-cleanup',
+            'child-2-cleanup',
+            'child-3-cleanup',
             'parent-3-cleanup',
             'parent-3',
         ];
-        expect(invocations).toEqual([
-            ...expectedInvocations1,
-            ...expectedInvocations2,
-            ...expectedInvocations3,
-        ]);
+        expect(invocations).toEqual(expectedInvocations3);
     });
 
     it('should handle memoized components', () => {

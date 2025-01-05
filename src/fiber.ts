@@ -1,8 +1,8 @@
 import { JSXElement, Props, FC } from './jsx.js';
 import REAL_DOM from './dom.js';
-import { CleanupFunc, EffectFunc, Hooks, processHooks, collectEffectCleanups } from './hooks.js';
+import { Hooks, processHooks, collectEffectCleanups } from './hooks.js';
 import { schedule } from './scheduler.js';
-import { EMPTY_ARR } from './constants.js';
+import { EMPTY_ARR, EMPTY_OBJ } from './constants.js';
 
 /**
  * Effect tags used to determine what to do with the fiber after a render.
@@ -97,9 +97,28 @@ let componentRenderQueue: Fiber[] = [];
 let wipRoot: MaybeFiber;
 let currentRoot: MaybeFiber;
 let deletions: Fiber[] = [];
-let effectsToRun: EffectFunc[] = [];
-let effectCleanupsToRun: CleanupFunc[] = [];
+let effectsToRun: (() => void)[] = [];
+let effectCleanupsToRun: (() => void)[] = [];
 let DOM = REAL_DOM;
+
+function getNewFiber(): Fiber {
+    return {
+        type: '',
+        parent: undefined,
+        child: undefined,
+        sibling: undefined,
+        alternate: undefined,
+        isAlternate: false,
+        dom: undefined,
+        hooks: [],
+        effectTag: EffectTag.add,
+        didChangePos: false,
+        props: EMPTY_OBJ,
+        version: 0,
+        childElements: EMPTY_ARR,
+        fromElement: { type: '', props: EMPTY_OBJ, key: undefined },
+    };
+}
 
 /**
  * Creates app root and kicks off the first render.
@@ -111,25 +130,13 @@ export function createRoot(root: Node, element: JSXElement, fakeDom?: typeof REA
     if (fakeDom) {
         DOM = fakeDom;
     }
-    wipRoot = {
-        type: APP_ROOT,
-        parent: undefined,
-        child: undefined,
-        sibling: undefined,
-        alternate: undefined,
-        isAlternate: false,
-        dom: root,
-        hooks: [],
-        effectTag: EffectTag.add,
-        didChangePos: false,
-        props: {
-            children: [element],
-        },
-        version: 0,
-        childElements: EMPTY_ARR,
-        fromElement: element,
-    };
-    nextUnitOfWork = wipRoot;
+    const fiber = getNewFiber();
+    fiber.type = APP_ROOT;
+    fiber.dom = root;
+    fiber.props = { children: [element] };
+    fiber.fromElement = element;
+    wipRoot = fiber;
+    nextUnitOfWork = fiber;
     schedule(workloop);
 }
 
@@ -221,23 +228,26 @@ function commitFiber(fiber: Fiber): MaybeAfterCommitFunc {
     let afterCommit: MaybeAfterCommitFunc;
 
     if (fiber.effectTag === EffectTag.delete) {
+        // Find the closest child and remove it from the dom.
+        const closestChildDOM = fiber.dom ?? findNextFiber(fiber, fiber, (f) => !!f.dom)?.dom;
+        if (closestChildDOM && closestChildDOM.parentNode) {
+            DOM.removeChild(closestChildDOM.parentNode, closestChildDOM);
+        }
+
         // Collect all of the useEffect cleanup functions to run after delete.
         let nextComponentChildFiber: MaybeFiber = fiber;
         while (nextComponentChildFiber) {
-            if (fiber.hooks) {
-                collectEffectCleanups(fiber.hooks, effectCleanupsToRun);
+            if (nextComponentChildFiber.hooks.length) {
+                const cleanupFuncs = collectEffectCleanups(nextComponentChildFiber.hooks);
+                if (cleanupFuncs) {
+                    effectCleanupsToRun.push(...cleanupFuncs.reverse());
+                }
             }
             nextComponentChildFiber = findNextFiber(
                 nextComponentChildFiber,
                 fiber,
                 (f) => typeof f.type !== 'string'
             );
-        }
-
-        // Find the closest child and remove it from the dom.
-        const closestChildDOM = fiber.dom ?? findNextFiber(fiber, fiber, (f) => !!f.dom)?.dom;
-        if (closestChildDOM && closestChildDOM.parentNode) {
-            DOM.removeChild(closestChildDOM.parentNode, closestChildDOM);
         }
     }
 
@@ -309,22 +319,23 @@ function pickNextComponentToRender(): MaybeFiber {
         return pickNextComponentToRender();
     }
 
-    return {
-        type: componentFiber.type,
-        parent: componentFiber.parent,
-        child: componentFiber.child,
-        sibling: componentFiber.sibling,
-        alternate: componentFiber,
-        isAlternate: false,
-        dom: componentFiber.dom,
-        hooks: componentFiber.hooks,
-        effectTag: EffectTag.update,
-        didChangePos: false,
-        props: componentFiber.props,
-        version: componentFiber.version + 1,
-        childElements: componentFiber.childElements,
-        fromElement: componentFiber.fromElement,
-    };
+    const newFiber = getNewFiber();
+    newFiber.type = componentFiber.type;
+    newFiber.parent = componentFiber.parent;
+    newFiber.child = componentFiber.child;
+    newFiber.sibling = componentFiber.sibling;
+    newFiber.alternate = componentFiber;
+    newFiber.isAlternate = false;
+    newFiber.dom = componentFiber.dom;
+    newFiber.hooks = componentFiber.hooks;
+    newFiber.effectTag = EffectTag.update;
+    newFiber.didChangePos = false;
+    newFiber.props = componentFiber.props;
+    newFiber.version = componentFiber.version + 1;
+    newFiber.childElements = componentFiber.childElements;
+    newFiber.fromElement = componentFiber.fromElement;
+
+    return newFiber;
 }
 
 /**
@@ -364,21 +375,36 @@ function processComponentFiber(fiber: Fiber<FC>) {
         fiber.hooks = [];
     }
 
+    let componentEffects: (() => void)[] | undefined;
+    let componentEffectCleanups: (() => void)[] | undefined;
+
     processHooks(
         fiber.hooks,
         function notifyOnStateChange() {
             addToComponentRenderQueue(fiber);
         },
-        function scheduleEffect(effect: EffectFunc, cleanup?: CleanupFunc) {
-            effectsToRun.push(effect);
+        function scheduleEffect(effect, cleanup) {
+            (componentEffects ?? (componentEffects = [])).push(effect);
             if (cleanup) {
-                effectCleanupsToRun.push(cleanup);
+                (componentEffectCleanups ?? (componentEffectCleanups = [])).push(cleanup);
             }
         }
     );
 
     const element = fiber.type(fiber.props);
     fiber.childElements = [element];
+
+    // Leaf fibers run their effects first in the order they were inside of the component.
+    // We maintain a single global array of all effects and by the end of the commit phase
+    // we will execute all effects one-by-one starting from the end of that array. Because
+    // we still need want to preserve the call order we need to reverse the effects here
+    // ahead of time.
+    if (componentEffects) {
+        effectsToRun.push(...componentEffects.reverse());
+    }
+    if (componentEffectCleanups) {
+        effectCleanupsToRun.push(...componentEffectCleanups.reverse());
+    }
 }
 
 /**
@@ -492,6 +518,7 @@ function diffChildren(wipFiberParent: Fiber) {
         wipFiberParent.child = undefined;
         wipFiberParent.alternate.effectTag = EffectTag.delete;
         deletions.push(wipFiberParent.alternate);
+        return;
     }
 
     // Collect all old fibers by key.
@@ -528,43 +555,28 @@ function diffChildren(wipFiberParent: Fiber) {
                 oldFiberByKey.parent = wipFiberParent;
                 newFiber = oldFiberByKey;
             } else {
-                newFiber = {
-                    type: childElement.type,
-                    parent: wipFiberParent,
-                    child: undefined,
-                    sibling: undefined,
-                    alternate: oldFiberByKey,
-                    isAlternate: false,
-                    dom: oldFiberByKey.dom,
-                    hooks: oldFiberByKey?.hooks,
-                    effectTag: EffectTag.update,
-                    didChangePos: oldFiberSeq !== oldFiberByKey,
-                    props: childElement.props,
-                    version: oldFiberByKey.version + 1,
-                    childElements: EMPTY_ARR,
-                    fromElement: childElement,
-                };
+                newFiber = getNewFiber();
+                newFiber.type = childElement.type;
+                newFiber.parent = wipFiberParent;
+                newFiber.alternate = oldFiberByKey;
+                newFiber.dom = oldFiberByKey.dom;
+                newFiber.hooks = oldFiberByKey.hooks;
+                newFiber.effectTag = EffectTag.update;
+                newFiber.didChangePos = oldFiberSeq !== oldFiberByKey;
+                newFiber.props = childElement.props;
+                newFiber.version = oldFiberByKey.version + 1;
+                newFiber.fromElement = childElement;
             }
         }
 
         // Brand new node.
         if (!isSameTypeByKey && childElement) {
-            newFiber = {
-                type: childElement.type,
-                parent: wipFiberParent,
-                child: undefined,
-                sibling: undefined,
-                alternate: undefined,
-                isAlternate: false,
-                dom: undefined,
-                hooks: [],
-                effectTag: EffectTag.add,
-                didChangePos: false,
-                props: childElement.props,
-                version: 0,
-                childElements: EMPTY_ARR,
-                fromElement: childElement,
-            };
+            newFiber = getNewFiber();
+            newFiber.type = childElement.type;
+            newFiber.parent = wipFiberParent;
+            newFiber.props = childElement.props;
+            newFiber.version = 0;
+            newFiber.fromElement = childElement;
         }
 
         // Delete old node.
