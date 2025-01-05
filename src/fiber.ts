@@ -502,6 +502,9 @@ function findNextFiber(
  * @param elements - Child elements.
  */
 function diffChildren(wipFiberParent: Fiber) {
+    if (wipFiberParent.props.id === 'list') {
+        debugger;
+    }
     const elements = wipFiberParent.childElements;
     // If fiber is a dom fiber and was previously committed and currently has no child elements
     // but previous fiber had elements we can bail out of doing a full diff, instead just recreate
@@ -517,6 +520,11 @@ function diffChildren(wipFiberParent: Fiber) {
         wipFiberParent.childElements = EMPTY_ARR;
         wipFiberParent.child = undefined;
         wipFiberParent.alternate.effectTag = EffectTag.delete;
+        wipFiberParent.alternate.isAlternate = true;
+        wipFiberParent.alternate.alternate = undefined;
+        wipFiberParent.dom = DOM.createNode(wipFiberParent.type as string);
+        DOM.addProps(wipFiberParent.dom, wipFiberParent.props);
+
         deletions.push(wipFiberParent.alternate);
         return;
     }
