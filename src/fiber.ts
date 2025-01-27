@@ -414,9 +414,7 @@ function processComponentFiber(fiber: Fiber<FC>) {
 function processDomFiber(fiber: Fiber<string>) {
     if (!fiber.dom) {
         fiber.dom = DOM.createNode(fiber.type as string);
-        if (fiber.props) {
-            DOM.addProps(fiber.dom, fiber.props);
-        }
+        DOM.addProps(fiber.dom, fiber.props);
     }
     fiber.childElements = fiber.props.children ?? EMPTY_ARR;
 }
@@ -502,9 +500,6 @@ function findNextFiber(
  * @param elements - Child elements.
  */
 function diffChildren(wipFiberParent: Fiber) {
-    if (wipFiberParent.props.id === 'list') {
-        debugger;
-    }
     const elements = wipFiberParent.childElements;
     // If fiber is a dom fiber and was previously committed and currently has no child elements
     // but previous fiber had elements we can bail out of doing a full diff, instead just recreate
@@ -543,6 +538,12 @@ function diffChildren(wipFiberParent: Fiber) {
 
     let prevSibling: MaybeFiber;
     let newElementIndex = 0;
+
+    const elementsAOS = {
+        type: elements.map((e) => e.type),
+        key: elements.map((e) => e.key),
+        props: elements.map((e) => e.props),
+    };
 
     while (newElementIndex < elements.length) {
         let newFiber: MaybeFiber;

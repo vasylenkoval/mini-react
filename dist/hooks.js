@@ -72,12 +72,14 @@ export function useState(initState) {
  * @param hooks - Hooks array to collect effect cleanups from.
  * @param cleanups - Reference to the array to collect the cleanups in.
  */
-export function collectEffectCleanups(hooks, cleanups) {
+export function collectEffectCleanups(hooks) {
+    let cleanupFuncs;
     for (let hook of hooks) {
         if (hook.type === HookTypes.effect && hook.cleanup) {
-            cleanups.push(hook.cleanup);
+            (cleanupFuncs ?? (cleanupFuncs = [])).push(hook.cleanup);
         }
     }
+    return cleanupFuncs;
 }
 /**
  * Runs the effect and stores the cleanup function returned on the same hook.
@@ -115,7 +117,7 @@ export function useEffect(effect, deps) {
     const oldHook = current.hooks[hookIndex];
     if (oldHook) {
         if (!areDepsEqual(deps, oldHook.deps)) {
-            scheduleEffect(() => executeEffect(effect, oldHook), oldHook.cleanup);
+            scheduleEffect(() => executeEffect(effect, oldHook), oldHook.cleanup ?? null);
             oldHook.deps = deps;
         }
         return;
@@ -125,7 +127,7 @@ export function useEffect(effect, deps) {
         deps,
     };
     current.hooks.push(hook);
-    scheduleEffect(() => executeEffect(effect, hook));
+    scheduleEffect(() => executeEffect(effect, hook), null);
 }
 /**
  * Remembers the value returned from the callback passed.

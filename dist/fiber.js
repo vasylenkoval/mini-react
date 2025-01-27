@@ -154,7 +154,10 @@ function commitFiber(fiber) {
         let nextComponentChildFiber = fiber;
         while (nextComponentChildFiber) {
             if (nextComponentChildFiber.hooks.length) {
-                collectEffectCleanups(nextComponentChildFiber.hooks, effectCleanupsToRun);
+                const cleanupFuncs = collectEffectCleanups(nextComponentChildFiber.hooks);
+                if (cleanupFuncs) {
+                    effectCleanupsToRun.push(...cleanupFuncs.reverse());
+                }
             }
             nextComponentChildFiber = findNextFiber(nextComponentChildFiber, fiber, (f) => typeof f.type !== 'string');
         }
@@ -265,16 +268,29 @@ function processComponentFiber(fiber) {
     if (!fiber.hooks) {
         fiber.hooks = [];
     }
+    let componentEffects;
+    let componentEffectCleanups;
     processHooks(fiber.hooks, function notifyOnStateChange() {
         addToComponentRenderQueue(fiber);
     }, function scheduleEffect(effect, cleanup) {
-        effectsToRun.push(effect);
+        (componentEffects ?? (componentEffects = [])).push(effect);
         if (cleanup) {
-            effectCleanupsToRun.push(cleanup);
+            (componentEffectCleanups ?? (componentEffectCleanups = [])).push(cleanup);
         }
     });
     const element = fiber.type(fiber.props);
     fiber.childElements = [element];
+    // Leaf fibers run their effects first in the order they were inside of the component.
+    // We maintain a single global array of all effects and by the end of the commit phase
+    // we will execute all effects one-by-one starting from the end of that array. Because
+    // we still need want to preserve the call order we need to reverse the effects here
+    // ahead of time.
+    if (componentEffects) {
+        effectsToRun.push(...componentEffects.reverse());
+    }
+    if (componentEffectCleanups) {
+        effectCleanupsToRun.push(...componentEffectCleanups.reverse());
+    }
 }
 /**
  * Processes dom fiber node before diffing children.
@@ -283,9 +299,7 @@ function processComponentFiber(fiber) {
 function processDomFiber(fiber) {
     if (!fiber.dom) {
         fiber.dom = DOM.createNode(fiber.type);
-        if (fiber.props) {
-            DOM.addProps(fiber.dom, fiber.props);
-        }
+        DOM.addProps(fiber.dom, fiber.props);
     }
     fiber.childElements = fiber.props.children ?? EMPTY_ARR;
 }
@@ -360,6 +374,9 @@ function findNextFiber(currFiber, root, predicate) {
  * @param elements - Child elements.
  */
 function diffChildren(wipFiberParent) {
+    if (wipFiberParent.props.id === 'list') {
+        debugger;
+    }
     const elements = wipFiberParent.childElements;
     // If fiber is a dom fiber and was previously committed and currently has no child elements
     // but previous fiber had elements we can bail out of doing a full diff, instead just recreate
@@ -373,7 +390,12 @@ function diffChildren(wipFiberParent) {
         wipFiberParent.childElements = EMPTY_ARR;
         wipFiberParent.child = undefined;
         wipFiberParent.alternate.effectTag = EffectTag.delete;
+        wipFiberParent.alternate.isAlternate = true;
+        wipFiberParent.alternate.alternate = undefined;
+        wipFiberParent.dom = DOM.createNode(wipFiberParent.type);
+        DOM.addProps(wipFiberParent.dom, wipFiberParent.props);
         deletions.push(wipFiberParent.alternate);
+        return;
     }
     // Collect all old fibers by key.
     const oldFibersMapByKey = new Map();
