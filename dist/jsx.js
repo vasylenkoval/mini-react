@@ -1,4 +1,5 @@
 import { EMPTY_ARR } from './constants.js';
+export const propsCompareFnSymbol = Symbol('propsCompareFn');
 export const TEXT_ELEMENT = 'TEXT';
 /**
  * Prepares children for an Element. Removes child items that cannot be rendered and flattens lists.
@@ -20,7 +21,7 @@ function prepareChildren(elements, children = []) {
         if (typeof element === 'string' || typeof element === 'number') {
             children.push({
                 type: TEXT_ELEMENT,
-                props: { nodeValue: element },
+                props: { nodeValue: element, key: undefined },
                 key: undefined,
             });
         }
