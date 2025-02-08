@@ -368,15 +368,26 @@ function findNextFiber(currFiber, root, predicate) {
     }
     return;
 }
+function propsCompare(prevProps, nextProps) {
+    if (prevProps === nextProps)
+        return true;
+    const prevKeys = Object.keys(prevProps);
+    const nextKeys = Object.keys(nextProps);
+    if (prevKeys.length !== nextKeys.length)
+        return false;
+    for (let i = 0; i < prevKeys.length; i++) {
+        const key = prevKeys[i];
+        if (prevProps[key] !== nextProps[key])
+            return false;
+    }
+    return true;
+}
 /**
  * Builds fiber children out of provided elements and reconciles DOM nodes with previous fiber tree.
  * @param wipFiberParent - Parent fiber to build children for.
  * @param elements - Child elements.
  */
 function diffChildren(wipFiberParent) {
-    if (wipFiberParent.props.id === 'list') {
-        debugger;
-    }
     const elements = wipFiberParent.childElements;
     // If fiber is a dom fiber and was previously committed and currently has no child elements
     // but previous fiber had elements we can bail out of doing a full diff, instead just recreate
@@ -422,7 +433,7 @@ function diffChildren(wipFiberParent) {
         if (oldFiberByKey && childElement && isSameTypeByKey) {
             // TODO: This is mutating an existing fiber in current tree,
             // need to figure out how to handle this better.
-            if (isSameElementByKey) {
+            if (isSameElementByKey || propsCompare(oldFiberByKey.props, childElement.props)) {
                 oldFiberByKey.effectTag = EffectTag.skip;
                 oldFiberByKey.didChangePos = oldFiberSeq !== oldFiberByKey;
                 oldFiberByKey.parent = wipFiberParent;

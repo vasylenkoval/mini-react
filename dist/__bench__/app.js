@@ -109,7 +109,7 @@ const listReducer = (state, action) => {
             return state;
     }
 };
-const Row = memo(({ selected, item, dispatch, }) => {
+const Row = ({ selected, item, dispatch, }) => {
     return (jsx("tr", { className: selected ? 'danger' : '' },
         jsx("td", { className: "col-md-1" }, item.id),
         jsx("td", { className: "col-md-4" },
@@ -118,7 +118,7 @@ const Row = memo(({ selected, item, dispatch, }) => {
             jsx("a", { onClick: useMemo(() => () => dispatch({ type: 'REMOVE', id: item.id }), []) },
                 jsx("span", { className: "glyphicon glyphicon-remove", "aria-hidden": "true" }))),
         jsx("td", { className: "col-md-6" })));
-}, (prevProps, nextProps) => prevProps.selected === nextProps.selected && prevProps.item === nextProps.item);
+};
 const Button = ({ id, cb, title }) => (jsx("div", { className: "col-sm-6 smallpad" },
     jsx("button", { type: "button", className: "btn btn-primary btn-block", id: id, onClick: cb }, title)));
 const Jumbotron = memo(({ dispatch }) => (jsx("div", { className: "jumbotron" },

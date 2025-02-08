@@ -1,5 +1,5 @@
 /** @jsx jsx */
-import { jsx, memo, Dispatch, useReducer, useMemo } from '../index.js';
+import { jsx, memo, Dispatch, useReducer, useMemo, useRef } from '../index.js';
 
 const random = (max: number) => Math.round(Math.random() * 1000) % max;
 
@@ -134,37 +134,33 @@ const listReducer = (state: typeof initialState, action: Action) => {
     }
 };
 
-const Row = memo(
-    ({
-        selected,
-        item,
-        dispatch,
-    }: {
-        key: string;
-        selected: boolean;
-        item: any;
-        dispatch: any;
-    }) => {
-        return (
-            <tr className={selected ? 'danger' : ''}>
-                <td className="col-md-1">{item.id}</td>
-                <td className="col-md-4">
-                    <a onClick={useMemo(() => () => dispatch({ type: 'SELECT', id: item.id }), [])}>
-                        {item.label}
-                    </a>
-                </td>
-                <td className="col-md-1">
-                    <a onClick={useMemo(() => () => dispatch({ type: 'REMOVE', id: item.id }), [])}>
-                        <span className="glyphicon glyphicon-remove" aria-hidden="true" />
-                    </a>
-                </td>
-                <td className="col-md-6" />
-            </tr>
-        );
-    },
-    (prevProps, nextProps) =>
-        prevProps.selected === nextProps.selected && prevProps.item === nextProps.item
-);
+const Row = ({
+    selected,
+    item,
+    dispatch,
+}: {
+    key: string;
+    selected: boolean;
+    item: any;
+    dispatch: any;
+}) => {
+    return (
+        <tr className={selected ? 'danger' : ''}>
+            <td className="col-md-1">{item.id}</td>
+            <td className="col-md-4">
+                <a onClick={useMemo(() => () => dispatch({ type: 'SELECT', id: item.id }), [])}>
+                    {item.label}
+                </a>
+            </td>
+            <td className="col-md-1">
+                <a onClick={useMemo(() => () => dispatch({ type: 'REMOVE', id: item.id }), [])}>
+                    <span className="glyphicon glyphicon-remove" aria-hidden="true" />
+                </a>
+            </td>
+            <td className="col-md-6" />
+        </tr>
+    );
+};
 
 const Button = ({ id, cb, title }: { id: string; cb: any; title: string }) => (
     <div className="col-sm-6 smallpad">

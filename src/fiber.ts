@@ -494,6 +494,22 @@ function findNextFiber(
     return;
 }
 
+function propsCompare(prevProps: Props, nextProps: Props): boolean {
+    if (prevProps === nextProps) return true;
+
+    const prevKeys = Object.keys(prevProps);
+    const nextKeys = Object.keys(nextProps);
+
+    if (prevKeys.length !== nextKeys.length) return false;
+
+    for (let i = 0; i < prevKeys.length; i++) {
+        const key = prevKeys[i];
+        if (prevProps[key] !== nextProps[key]) return false;
+    }
+
+    return true;
+}
+
 /**
  * Builds fiber children out of provided elements and reconciles DOM nodes with previous fiber tree.
  * @param wipFiberParent - Parent fiber to build children for.
@@ -539,12 +555,6 @@ function diffChildren(wipFiberParent: Fiber) {
     let prevSibling: MaybeFiber;
     let newElementIndex = 0;
 
-    const elementsAOS = {
-        type: elements.map((e) => e.type),
-        key: elements.map((e) => e.key),
-        props: elements.map((e) => e.props),
-    };
-
     while (newElementIndex < elements.length) {
         let newFiber: MaybeFiber;
         const childElement = elements[newElementIndex] as JSXElement | undefined;
@@ -558,7 +568,7 @@ function diffChildren(wipFiberParent: Fiber) {
         if (oldFiberByKey && childElement && isSameTypeByKey) {
             // TODO: This is mutating an existing fiber in current tree,
             // need to figure out how to handle this better.
-            if (isSameElementByKey) {
+            if (isSameElementByKey || propsCompare(oldFiberByKey.props, childElement.props)) {
                 oldFiberByKey.effectTag = EffectTag.skip;
                 oldFiberByKey.didChangePos = oldFiberSeq !== oldFiberByKey;
                 oldFiberByKey.parent = wipFiberParent;
