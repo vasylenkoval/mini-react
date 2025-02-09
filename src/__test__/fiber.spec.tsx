@@ -181,8 +181,12 @@ describe('fiber', () => {
         let childRenders = 0;
         let rerenderChild = () => {};
         const Child = () => {
+            debugger;
             const [, setCount] = useState(0);
-            rerenderChild = () => setCount((count) => ++count);
+            rerenderChild = () => {
+                debugger;
+                setCount((count) => ++count);
+            };
             childRenders++;
             return <div>1</div>;
         };
@@ -342,7 +346,6 @@ describe('fiber', () => {
         const App = () => {
             const [items, setItems] = useState<number[]>([]);
             populate = (itemsArr: number[]) => setItems(itemsArr);
-            debugger;
             return (
                 <div id="root">
                     <div id="header">List</div>
