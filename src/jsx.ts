@@ -14,10 +14,14 @@ export type Primitive = undefined | null | string | number | boolean;
 export type JSXElement = {
     type: string | FC<Props>;
     props: Props;
-    key: string | number | undefined;
-    serialized?: string;
+    key: string | undefined;
+    children: JSXElement[] | undefined;
 };
-export type Props = { [key: string]: unknown; children?: JSXElement[]; key?: string | number };
+export type Props = {
+    [key: string]: unknown;
+    children?: JSXElement[] | undefined;
+    key?: string | undefined;
+};
 export type FC<T = Props> = ((props: T) => JSXElement) & {
     [propsCompareFnSymbol]?: (prevProps: T, nextProps: T) => boolean;
 };
@@ -44,7 +48,8 @@ function prepareChildren(
         if (typeof element === 'string' || typeof element === 'number') {
             children.push({
                 type: TEXT_ELEMENT,
-                props: { nodeValue: element, key: undefined },
+                props: { nodeValue: element, key: undefined, children: undefined },
+                children: undefined,
                 key: undefined,
             });
         }
@@ -73,7 +78,8 @@ export function jsx<TProps extends Props | null>(
     const element: JSXElement = {
         type,
         props,
-        key: props.key ?? undefined,
+        children: props.children,
+        key: props.key != null ? String(props.key) : undefined,
     };
     return element;
 }

@@ -26,6 +26,11 @@ enum EffectTag {
     skip,
 }
 
+enum FiberType {
+    component,
+    intrinsic,
+}
+
 const APP_ROOT = 'root' as const;
 
 interface Fiber<T extends string | FC = string | FC> {
@@ -33,6 +38,10 @@ interface Fiber<T extends string | FC = string | FC> {
      * A string if it's a DOM node, a function if it's a component.
      */
     type: T;
+    /**
+     * Component.
+     */
+    component: FC | undefined;
     /**
      * The parent fiber.
      */
@@ -150,11 +159,17 @@ export function createRoot(root: Node, element: JSXElement, fakeDom?: typeof REA
     if (fakeDom) {
         DOM = fakeDom;
     }
+    debugger;
     const fiber = getNewFiber();
     fiber.type = APP_ROOT;
     fiber.dom = root;
     fiber.props = { children: [element] };
-    fiber.fromElement = element;
+    fiber.fromElement = {
+        type: 'div',
+        props: fiber.props,
+        children: [element],
+        key: undefined,
+    };
     wipRoot = fiber;
     nextUnitOfWork = fiber;
     schedule(workloop);
@@ -191,18 +206,21 @@ function commitRoot() {
                 afterCommitFns.push(afterCommitFn);
             }
 
-            // CANNOT KEEP TRAVERSING DOWN IF TOP LEVEL WAS SKIPPED.
-
-            nextFiberToCommit = nextFiber(
-                nextFiberToCommit,
-                wipRoot,
-                (f) =>
-                    (f.didChangePos || f.effectTag !== EffectTag.skip) &&
-                    !(
-                        nextFiberToCommit?.effectTag === EffectTag.skip &&
-                        f.parent === nextFiberToCommit
-                    )
-            );
+            if (nextFiberToCommit.effectTag === EffectTag.skip) {
+                // CANNOT KEEP TRAVERSING DOWN IF TOP LEVEL WAS SKIPPED.
+                nextFiberToCommit = nextFiber(
+                    nextFiberToCommit,
+                    wipRoot,
+                    (f) => f.didChangePos || f.effectTag !== EffectTag.skip,
+                    true
+                );
+            } else {
+                nextFiberToCommit = nextFiber(
+                    nextFiberToCommit,
+                    wipRoot,
+                    (f) => f.didChangePos || f.effectTag !== EffectTag.skip
+                );
+            }
         }
 
         for (const afterCommitFn of afterCommitFns.reverse()) {
@@ -278,10 +296,6 @@ function deleteFiber(fiber: Fiber) {
  */
 function commitFiber(fiber: Fiber): MaybeAfterCommitFunc {
     let afterCommit: MaybeAfterCommitFunc;
-
-    if (fiber.props.id === 5) {
-        console.log('test');
-    }
 
     if (fiber.didChangePos) {
         // Find closest parent that's not a component.
@@ -458,7 +472,7 @@ function processDomFiber(fiber: Fiber<string>) {
         fiber.dom = DOM.createNode(fiber.type as string);
         DOM.addProps(fiber.dom, fiber.props);
     }
-    fiber.childElements = fiber.props.children ?? EMPTY_ARR;
+    fiber.childElements = fiber.fromElement.children ?? EMPTY_ARR;
 }
 
 /**
@@ -492,13 +506,14 @@ function defaultPredicate() {
 function nextFiber(
     currFiber: Fiber,
     root: MaybeFiber,
-    skipFn: (fiber: Fiber) => boolean = defaultPredicate
+    skipFn: (fiber: Fiber) => boolean = defaultPredicate,
+    skipChild = false
 ): MaybeFiber {
     // Visit up to the last child first.
-    if (currFiber.child && skipFn(currFiber.child)) {
+    if (currFiber.child && skipFn(currFiber.child) && !skipChild) {
         return currFiber.child;
     }
-    let nextFiber: MaybeFiber = currFiber.child ?? currFiber;
+    let nextFiber: MaybeFiber = skipChild ? currFiber : currFiber.child ?? currFiber;
     while (nextFiber && nextFiber !== root) {
         if (nextFiber.sibling && skipFn(nextFiber.sibling)) {
             return nextFiber.sibling; // Exhaust all siblings.
@@ -598,9 +613,7 @@ function diffChildren(wipFiberParent: Fiber) {
     }
 
     let prevSibling: MaybeFiber;
-    let newElementIndex = 0;
-
-    while (newElementIndex < elements.length) {
+    for (let newElementIndex = 0; newElementIndex < elements.length; newElementIndex++) {
         let newFiber: MaybeFiber;
         const childElement = elements[newElementIndex] as JSXElement | undefined;
         const oldFiberKey = childElement?.key ?? newElementIndex;
@@ -672,8 +685,6 @@ function diffChildren(wipFiberParent: Fiber) {
         if (oldFiberByKey) {
             oldFibersMapByKey.delete(oldFiberKey);
         }
-
-        newElementIndex++;
     }
 
     // Delete all orphaned old fibers.

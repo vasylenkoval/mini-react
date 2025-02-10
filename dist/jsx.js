@@ -21,7 +21,8 @@ function prepareChildren(elements, children = []) {
         if (typeof element === 'string' || typeof element === 'number') {
             children.push({
                 type: TEXT_ELEMENT,
-                props: { nodeValue: element, key: undefined },
+                props: { nodeValue: element, key: undefined, children: undefined },
+                children: undefined,
                 key: undefined,
             });
         }
@@ -42,7 +43,8 @@ export function jsx(type, props, ...children) {
     const element = {
         type,
         props,
-        key: props.key ?? undefined,
+        children: props.children,
+        key: props.key != null ? String(props.key) : undefined,
     };
     return element;
 }
