@@ -26,11 +26,6 @@ enum EffectTag {
     skip,
 }
 
-enum FiberType {
-    component,
-    intrinsic,
-}
-
 const APP_ROOT = 'root' as const;
 
 interface Fiber<T extends string | FC = string | FC> {
@@ -38,10 +33,6 @@ interface Fiber<T extends string | FC = string | FC> {
      * A string if it's a DOM node, a function if it's a component.
      */
     type: T;
-    /**
-     * Component.
-     */
-    component: FC | undefined;
     /**
      * The parent fiber.
      */
@@ -159,7 +150,6 @@ export function createRoot(root: Node, element: JSXElement, fakeDom?: typeof REA
     if (fakeDom) {
         DOM = fakeDom;
     }
-    debugger;
     const fiber = getNewFiber();
     fiber.type = APP_ROOT;
     fiber.dom = root;
@@ -270,7 +260,6 @@ function deleteFiber(fiber: Fiber) {
     if (closestChildDOM && closestChildDOM.parentNode) {
         DOM.removeChild(closestChildDOM.parentNode, closestChildDOM);
     }
-
     // Collect all of the useEffect cleanup functions to run after delete.
     let nextComponentChildFiber: MaybeFiber = fiber;
     while (nextComponentChildFiber) {
@@ -285,6 +274,14 @@ function deleteFiber(fiber: Fiber) {
             fiber,
             (f) => typeof f.type !== 'string'
         );
+    }
+}
+
+function deleteFiber2(fiber: Fiber) {
+    // Find the closest child and remove it from the dom.
+    const closestChildDOM = fiber.dom ?? findNextFiber(fiber, fiber, (f) => !!f.dom)?.dom;
+    if (closestChildDOM && closestChildDOM.parentNode) {
+        DOM.removeChild(closestChildDOM.parentNode, closestChildDOM);
     }
 }
 
@@ -693,5 +690,6 @@ function diffChildren(wipFiberParent: Fiber) {
         fiber.isOld = true;
         fiber.effectTag = EffectTag.delete;
         deletions.push(fiber);
+        deleteFiber2(fiber);
     }
 }

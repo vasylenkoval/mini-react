@@ -33,6 +33,9 @@ export function addProps(node: Node, props: Props, prevProps?: Props) {
         return;
     }
 
+    // @TODO: figure out why buttons and some other elements do not attach id
+    // Also figure out why value is not being reset on inputs
+
     const element = node as Element;
     if (prevProps) {
         // Resets props that are completely removed.
@@ -69,18 +72,23 @@ export function addProps(node: Node, props: Props, prevProps?: Props) {
     }
 }
 
+const nodeProto = Node.prototype;
+const nodeInsertBefore = nodeProto.insertBefore;
+const nodeRemoveChild = nodeProto.removeChild;
+const nodeAppendChild = nodeProto.appendChild;
+
 /**
  * Remove child from a given parent.
  */
 function removeChild(parent: Node, child: Node) {
-    parent.removeChild(child);
+    nodeRemoveChild.call(parent, child);
 }
 
 /**
  * Append child to a given parent.
  */
 function appendChild(parent: Node, child: Node) {
-    parent.appendChild(child);
+    nodeAppendChild.call(parent, child);
 }
 
 function replaceWith(oldNode: ChildNode, newNode: Node) {
@@ -88,7 +96,7 @@ function replaceWith(oldNode: ChildNode, newNode: Node) {
 }
 
 function insertBefore(parent: Node, node: Node, beforeNode: Node | null) {
-    parent.insertBefore(node, beforeNode);
+    nodeInsertBefore.call(parent, node, beforeNode);
 }
 
 export default { createNode, addProps, removeChild, appendChild, replaceWith, insertBefore };

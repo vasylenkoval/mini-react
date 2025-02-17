@@ -69,7 +69,6 @@ export function createRoot(root, element, fakeDom) {
     if (fakeDom) {
         DOM = fakeDom;
     }
-    debugger;
     const fiber = getNewFiber();
     fiber.type = APP_ROOT;
     fiber.dom = root;
@@ -172,6 +171,13 @@ function deleteFiber(fiber) {
             }
         }
         nextComponentChildFiber = findNextFiber(nextComponentChildFiber, fiber, (f) => typeof f.type !== 'string');
+    }
+}
+function deleteFiber2(fiber) {
+    // Find the closest child and remove it from the dom.
+    const closestChildDOM = fiber.dom ?? findNextFiber(fiber, fiber, (f) => !!f.dom)?.dom;
+    if (closestChildDOM && closestChildDOM.parentNode) {
+        DOM.removeChild(closestChildDOM.parentNode, closestChildDOM);
     }
 }
 /**
@@ -520,5 +526,6 @@ function diffChildren(wipFiberParent) {
         fiber.isOld = true;
         fiber.effectTag = EffectTag.delete;
         deletions.push(fiber);
+        deleteFiber2(fiber);
     }
 }

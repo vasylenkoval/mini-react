@@ -74,7 +74,7 @@ const TimerCard = () => {
             jsx("p", null,
                 "Timer: ",
                 (timer / 1000).toFixed(1)),
-            jsx("button", { style: "margin-right:10px;", onClick: handleTimerToggle },
+            jsx("button", { id: "stop", style: "margin-right:10px;", onClick: handleTimerToggle },
                 isStopped ? 'Start timer' : 'Stop timer',
                 " \u23F1"))));
 };
@@ -98,7 +98,7 @@ const App = () => {
     const [name, setName] = useState('John Doe');
     const [age, setAge] = useState(33);
     const [countState, countDispatch] = useReducer(counterReducer, initialCountState);
-    return (jsx("div", { className: "app" },
+    return (jsx("div", { className: "app", id: "test" },
         jsx("h1", { className: "title" }, "Mini-React \u269B\uFE0F"),
         jsx(Card, { title: "Counter" },
             jsx("p", null,
