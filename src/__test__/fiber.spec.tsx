@@ -371,23 +371,23 @@ describe('fiber', () => {
                 .join('')}</div></div>`
         );
 
-        // // Re-shuffle
-        // newArr = [1, 4, 3, 2, 5];
-        // populate(newArr);
-        // expect(rootElement.innerHTML).toBe(
-        //     `<div id="root"><div id="header">List</div><div id="list">${newArr
-        //         .map((id) => `<div>${id}</div>`)
-        //         .join('')}</div></div>`
-        // );
+        // Re-shuffle
+        newArr = [1, 4, 3, 2, 5];
+        populate(newArr);
+        expect(rootElement.innerHTML).toBe(
+            `<div id="root"><div id="header">List</div><div id="list">${newArr
+                .map((id) => `<div>${id}</div>`)
+                .join('')}</div></div>`
+        );
 
-        // // Remove elements and re-shuffle
-        // newArr = [1, 3, 2];
-        // populate(newArr);
-        // expect(rootElement.innerHTML).toBe(
-        //     `<div id="root"><div id="header">List</div><div id="list">${newArr
-        //         .map((id) => `<div>${id}</div>`)
-        //         .join('')}</div></div>`
-        // );
+        // Remove elements and re-shuffle
+        newArr = [1, 3, 2];
+        populate(newArr);
+        expect(rootElement.innerHTML).toBe(
+            `<div id="root"><div id="header">List</div><div id="list">${newArr
+                .map((id) => `<div>${id}</div>`)
+                .join('')}</div></div>`
+        );
     });
 
     it('should handle useEffect correctly', () => {

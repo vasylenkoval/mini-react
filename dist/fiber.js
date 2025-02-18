@@ -172,13 +172,11 @@ function deleteFiber(fiber) {
         }
         nextComponentChildFiber = findNextFiber(nextComponentChildFiber, fiber, (f) => typeof f.type !== 'string');
     }
-}
-function deleteFiber2(fiber) {
-    // Find the closest child and remove it from the dom.
-    const closestChildDOM = fiber.dom ?? findNextFiber(fiber, fiber, (f) => !!f.dom)?.dom;
-    if (closestChildDOM && closestChildDOM.parentNode) {
-        DOM.removeChild(closestChildDOM.parentNode, closestChildDOM);
-    }
+    fiber.child = undefined;
+    fiber.sibling = undefined;
+    fiber.parent = undefined;
+    fiber.dom = undefined;
+    fiber.childElements = EMPTY_ARR;
 }
 /**
  * Commits a single fiber by attaching its DOM nodes to parent's and adding new props.
@@ -262,6 +260,7 @@ function pickNextComponentToRender() {
     newFiber.childElements = componentFiber.childElements;
     newFiber.fromElement = componentFiber.fromElement;
     newFiber.propsCompareFn = componentFiber.propsCompareFn;
+    // Do this after commit?
     componentFiber.old = undefined;
     componentFiber.isOld = true;
     return newFiber;
@@ -486,6 +485,9 @@ function diffChildren(wipFiberParent) {
             if (shouldSkip) {
                 newFiber.effectTag = EffectTag.skip;
                 newFiber.child = oldFiberByKey.child;
+                if (newFiber.child) {
+                    newFiber.child.parent = newFiber;
+                }
             }
         }
         // Brand new node.
@@ -526,6 +528,5 @@ function diffChildren(wipFiberParent) {
         fiber.isOld = true;
         fiber.effectTag = EffectTag.delete;
         deletions.push(fiber);
-        deleteFiber2(fiber);
     }
 }

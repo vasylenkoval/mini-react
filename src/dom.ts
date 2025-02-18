@@ -72,10 +72,10 @@ export function addProps(node: Node, props: Props, prevProps?: Props) {
     }
 }
 
-const nodeProto = Node.prototype;
-const nodeInsertBefore = nodeProto.insertBefore;
-const nodeRemoveChild = nodeProto.removeChild;
-const nodeAppendChild = nodeProto.appendChild;
+const nodeProto = globalThis.Node?.prototype;
+const nodeInsertBefore = nodeProto?.insertBefore;
+const nodeRemoveChild = nodeProto?.removeChild;
+const nodeAppendChild = nodeProto?.appendChild;
 
 /**
  * Remove child from a given parent.
