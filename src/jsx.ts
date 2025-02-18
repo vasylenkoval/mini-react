@@ -49,7 +49,7 @@ function prepareChildren(
             children.push({
                 type: TEXT_ELEMENT,
                 props: { nodeValue: element, key: undefined, children: undefined },
-                children: undefined,
+                children: EMPTY_ARR,
                 key: undefined,
             });
         }

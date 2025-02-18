@@ -37,26 +37,25 @@ let DOM = REAL_DOM;
 function getNewFiber() {
     const fiber = {
         type: '',
-        parent: undefined,
-        child: undefined,
-        sibling: undefined,
-        old: undefined,
+        parent: null,
+        child: null,
+        sibling: null,
+        old: null,
         isOld: false,
-        dom: undefined,
-        stateNode: {
-            current: undefined,
-            hooks: [],
-        },
+        dom: null,
+        stateNode: null,
         effectTag: EffectTag.add,
         didChangePos: false,
         props: EMPTY_OBJ,
         version: 0,
         childElements: EMPTY_ARR,
-        fromElement: { type: '', props: EMPTY_OBJ, key: undefined },
+        fromElement: { type: '', props: EMPTY_OBJ, children: EMPTY_ARR, key: undefined },
         propsCompareFn: defaultPropsCompareFn,
     };
-    // @ts-expect-error
-    fiber.stateNode.current = fiber;
+    fiber.stateNode = {
+        current: fiber,
+        hooks: [],
+    };
     return fiber;
 }
 /**
@@ -144,7 +143,7 @@ function commitRoot() {
             }
         }
     }
-    wipRoot = undefined;
+    wipRoot = null;
     // Running effects in the reverse order. Leaf fibers run their effects first.
     for (let i = effectCleanupsToRun.length - 1; i >= 0; i--) {
         effectCleanupsToRun[i]();
@@ -172,10 +171,11 @@ function deleteFiber(fiber) {
         }
         nextComponentChildFiber = findNextFiber(nextComponentChildFiber, fiber, (f) => typeof f.type !== 'string');
     }
-    fiber.child = undefined;
-    fiber.sibling = undefined;
-    fiber.parent = undefined;
-    fiber.dom = undefined;
+    fiber.child = null;
+    fiber.sibling = null;
+    fiber.parent = null;
+    fiber.dom = null;
+    fiber.stateNode = null;
     fiber.childElements = EMPTY_ARR;
 }
 /**
@@ -189,8 +189,8 @@ function commitFiber(fiber) {
     if (fiber.didChangePos) {
         // Find closest parent that's not a component.
         let parentWithDom = fiber.parent;
-        while (!parentWithDom?.dom) {
-            parentWithDom = parentWithDom?.parent;
+        while (parentWithDom && !parentWithDom.dom) {
+            parentWithDom = parentWithDom.parent;
         }
         const parentDom = parentWithDom.dom;
         const closestChildDom = fiber.dom ?? findNextFiber(fiber, fiber, (f) => !!f.dom)?.dom;
@@ -236,7 +236,7 @@ function commitFiber(fiber) {
  */
 function pickNextComponentToRender() {
     if (!componentRenderQueue.length) {
-        return;
+        return null;
     }
     const componentFiber = componentRenderQueue.shift();
     // If the component already re-rendered since it was queued we can skip the update.
@@ -251,8 +251,9 @@ function pickNextComponentToRender() {
     newFiber.old = componentFiber;
     newFiber.isOld = false;
     newFiber.dom = componentFiber.dom;
-    newFiber.stateNode = componentFiber.stateNode;
-    newFiber.stateNode.current = newFiber;
+    const stateNode = componentFiber.stateNode;
+    newFiber.stateNode = stateNode;
+    stateNode.current = newFiber;
     newFiber.effectTag = EffectTag.update;
     newFiber.didChangePos = false;
     newFiber.props = componentFiber.props;
@@ -261,7 +262,7 @@ function pickNextComponentToRender() {
     newFiber.fromElement = componentFiber.fromElement;
     newFiber.propsCompareFn = componentFiber.propsCompareFn;
     // Do this after commit?
-    componentFiber.old = undefined;
+    componentFiber.old = null;
     componentFiber.isOld = true;
     return newFiber;
 }
@@ -379,7 +380,7 @@ function nextFiber(currFiber, root, skipFn = defaultPredicate, skipChild = false
             nextFiber = nextFiber.parent; // If doesn't exist go up the tree until we reach the root or undefined.
         }
     }
-    return;
+    return null;
 }
 /**
  * Finds a next fiber in the tree that matches the predicate. Searches the entire tree until found.
@@ -390,7 +391,7 @@ function nextFiber(currFiber, root, skipFn = defaultPredicate, skipChild = false
  */
 function findNextFiber(currFiber, root, predicate) {
     if (!currFiber) {
-        return;
+        return null;
     }
     let next = nextFiber(currFiber, root);
     while (next) {
@@ -399,7 +400,7 @@ function findNextFiber(currFiber, root, predicate) {
         }
         next = nextFiber(next, root);
     }
-    return;
+    return null;
 }
 export function defaultPropsCompareFn(prevProps, nextProps) {
     if (prevProps === nextProps)
@@ -433,12 +434,12 @@ function diffChildren(wipFiberParent) {
         const old = wipFiberParent.old;
         old.effectTag = EffectTag.delete;
         old.isOld = true;
-        old.old = undefined;
+        old.old = null;
         deletions.push(old);
-        wipFiberParent.old = undefined;
+        wipFiberParent.old = null;
         wipFiberParent.effectTag = EffectTag.add;
         wipFiberParent.childElements = EMPTY_ARR;
-        wipFiberParent.child = undefined;
+        wipFiberParent.child = null;
         wipFiberParent.dom = DOM.createNode(wipFiberParent.type);
         DOM.addProps(wipFiberParent.dom, wipFiberParent.props);
         return;
@@ -454,9 +455,9 @@ function diffChildren(wipFiberParent) {
         nextOldFiber = nextOldFiber.sibling;
         nextOldFiberIndex++;
     }
-    let prevSibling;
+    let prevSibling = null;
     for (let newElementIndex = 0; newElementIndex < elements.length; newElementIndex++) {
-        let newFiber;
+        let newFiber = null;
         const childElement = elements[newElementIndex];
         const oldFiberKey = childElement?.key ?? newElementIndex;
         const oldFiberByKey = oldFibersMapByKey.get(oldFiberKey);
@@ -470,8 +471,9 @@ function diffChildren(wipFiberParent) {
             newFiber.parent = wipFiberParent;
             newFiber.old = oldFiberByKey;
             newFiber.dom = oldFiberByKey.dom;
-            newFiber.stateNode = oldFiberByKey.stateNode;
-            newFiber.stateNode.current = newFiber;
+            const stateNode = oldFiberByKey.stateNode;
+            stateNode.current = newFiber;
+            newFiber.stateNode = stateNode;
             newFiber.effectTag = EffectTag.update;
             newFiber.didChangePos = oldFiberSeq !== oldFiberByKey;
             newFiber.props = childElement.props;
@@ -506,7 +508,7 @@ function diffChildren(wipFiberParent) {
         }
         // Only store 2 levels.
         if (!!oldFiberByKey) {
-            oldFiberByKey.old = undefined;
+            oldFiberByKey.old = null;
             oldFiberByKey.isOld = true;
         }
         // Connect siblings.
@@ -524,7 +526,7 @@ function diffChildren(wipFiberParent) {
     }
     // Delete all orphaned old fibers.
     for (const [, fiber] of oldFibersMapByKey) {
-        fiber.old = undefined;
+        fiber.old = null;
         fiber.isOld = true;
         fiber.effectTag = EffectTag.delete;
         deletions.push(fiber);
