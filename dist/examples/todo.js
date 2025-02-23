@@ -62,8 +62,7 @@ function Todo({ key, todo, remove, update, toggleComplete, }) {
         result = (jsx("div", { className: "Todo" },
             jsx("li", { id: todo.id, onClick: toggleCompleted, className: todo.completed ? 'Todo-task completed' : 'Todo-task' }, todo.task),
             jsx("div", { className: "Todo-buttons" },
-                jsx("button", { onClick: toggleFrom },
-                    jsx("i", { className: "fas fa-pen" })),
+                jsx("button", { onClick: toggleFrom }, "Edit"),
                 jsx("button", { onClick: () => handleClick(todo.id) }, "DELETE"))));
     }
     return result;

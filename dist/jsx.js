@@ -9,7 +9,8 @@ export const TEXT_ELEMENT = 'TEXT';
 function prepareChildren(elements, children = []) {
     // Create Element out of primitive children.
     for (const element of elements) {
-        if (typeof element === 'object' && element) {
+        const elementType = typeof element;
+        if (elementType === 'object' && element) {
             if (Array.isArray(element)) {
                 prepareChildren(element, children);
             }
@@ -18,33 +19,32 @@ function prepareChildren(elements, children = []) {
             }
             continue;
         }
-        if (typeof element === 'string' || typeof element === 'number') {
+        if (elementType === 'string' || elementType === 'number') {
             children.push({
                 type: TEXT_ELEMENT,
-                props: { nodeValue: element, key: undefined, children: undefined },
+                props: { nodeValue: element },
                 children: EMPTY_ARR,
-                key: undefined,
+                key: null,
             });
         }
     }
-    return children.length ? children : undefined;
+    return children.length ? children : EMPTY_ARR;
 }
 /**
  * Creates a new JSX element with the specified type, props, and children.
  */
-export function jsx(type, props, ...children) {
-    props = props ?? {
-        children: EMPTY_ARR,
-        key: undefined,
-    };
-    if (children.length > 0) {
-        props.children = prepareChildren(children);
+export function jsx(type, _props, ..._children) {
+    const props = _props ?? {};
+    let children = null;
+    if (_children.length > 0) {
+        children = prepareChildren(_children);
+        props.children = children;
     }
     const element = {
         type,
         props,
-        children: props.children,
-        key: props.key != null ? String(props.key) : undefined,
+        children: children,
+        key: props.key !== undefined ? props.key : null,
     };
     return element;
 }

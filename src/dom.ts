@@ -16,6 +16,24 @@ const isEvent = (propName: string) => propName.startsWith(FUNCTION_PREFIX);
 const isProp = (propName: string) => propName !== CHILDREN_PROP && !isEvent(propName);
 const getEventName = (propName: string) => propName.toLowerCase().substring(2);
 const getPropName = (propName: string) => (propName === 'className' ? 'class' : propName);
+const canSetDirect = (propName: string, dom: Record<string, unknown>) => {
+    // TODO(val): snippet from preact, figure out the reason why these
+    // properties have to be set with setAttribute specifically.
+    return (
+        propName != 'width' &&
+        propName != 'height' &&
+        propName != 'href' &&
+        propName != 'list' &&
+        propName != 'form' &&
+        propName != 'tabIndex' &&
+        propName != 'download' &&
+        propName != 'rowSpan' &&
+        propName != 'colSpan' &&
+        propName != 'role' &&
+        propName != 'popover' &&
+        propName in dom
+    );
+};
 
 type EventListener = EventListenerOrEventListenerObject;
 /**
@@ -36,7 +54,7 @@ export function addProps(node: Node, props: Props, prevProps?: Props) {
     // @TODO: figure out why buttons and some other elements do not attach id
     // Also figure out why value is not being reset on inputs
 
-    const element = node as Element;
+    const element = node as Element & Record<string, unknown>;
     if (prevProps) {
         // Resets props that are completely removed.
         for (let propToReset in prevProps) {
@@ -44,7 +62,12 @@ export function addProps(node: Node, props: Props, prevProps?: Props) {
                 continue;
             }
             if (isProp(propToReset)) {
-                element.removeAttribute(getPropName(propToReset));
+                const propName = getPropName(propToReset);
+                if (canSetDirect(propName, element)) {
+                    element[propName] = '';
+                } else {
+                    element.removeAttribute(propName);
+                }
             } else if (isEvent(propToReset)) {
                 element.removeEventListener(
                     getEventName(propToReset),
@@ -61,7 +84,12 @@ export function addProps(node: Node, props: Props, prevProps?: Props) {
         }
         const value = props[propToAdd];
         if (isProp(propToAdd) && typeof value === 'string') {
-            element.setAttribute(getPropName(propToAdd), value);
+            const propName = getPropName(propToAdd);
+            if (canSetDirect(propName, element)) {
+                element[propName] = value;
+            } else {
+                element.setAttribute(propName, value);
+            }
         } else if (isEvent(propToAdd)) {
             const eventName = getEventName(propToAdd);
             if (prevProps && prevProps[propToAdd]) {

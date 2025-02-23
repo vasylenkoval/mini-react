@@ -14,13 +14,12 @@ export type Primitive = undefined | null | string | number | boolean;
 export type JSXElement = {
     type: string | FC<Props>;
     props: Props;
-    key: string | undefined;
-    children: JSXElement[] | undefined;
+    key: string | null;
+    children: JSXElement[];
 };
 export type Props = {
+    children?: JSXElement[] | null;
     [key: string]: unknown;
-    children?: JSXElement[] | undefined;
-    key?: string | undefined;
 };
 export type FC<T = Props> = ((props: T) => JSXElement) & {
     [propsCompareFnSymbol]?: (prevProps: T, nextProps: T) => boolean;
@@ -34,28 +33,29 @@ export type FC<T = Props> = ((props: T) => JSXElement) & {
 function prepareChildren(
     elements: (JSXElement | Primitive)[],
     children: JSXElement[] = []
-): JSXElement[] | undefined {
+): JSXElement[] {
     // Create Element out of primitive children.
     for (const element of elements) {
-        if (typeof element === 'object' && element) {
+        const elementType = typeof element;
+        if (elementType === 'object' && element) {
             if (Array.isArray(element)) {
                 prepareChildren(element, children);
             } else {
-                children.push(element);
+                children.push(element as JSXElement);
             }
             continue;
         }
-        if (typeof element === 'string' || typeof element === 'number') {
+        if (elementType === 'string' || elementType === 'number') {
             children.push({
                 type: TEXT_ELEMENT,
-                props: { nodeValue: element, key: undefined, children: undefined },
+                props: { nodeValue: element },
                 children: EMPTY_ARR,
-                key: undefined,
+                key: null,
             });
         }
     }
 
-    return children.length ? children : undefined;
+    return children.length ? children : EMPTY_ARR;
 }
 
 /**
@@ -63,23 +63,21 @@ function prepareChildren(
  */
 export function jsx<TProps extends Props | null>(
     type: string | FC,
-    props: any,
-    ...children: (JSXElement | Primitive)[]
+    _props: any,
+    ..._children: (JSXElement | Primitive)[]
 ): JSXElement {
-    props = props ?? {
-        children: EMPTY_ARR,
-        key: undefined,
-    };
-
-    if (children.length > 0) {
-        props.children = prepareChildren(children);
+    const props = _props ?? {};
+    let children = null;
+    if (_children.length > 0) {
+        children = prepareChildren(_children);
+        props.children = children;
     }
 
     const element: JSXElement = {
         type,
         props,
-        children: props.children,
-        key: props.key != null ? String(props.key) : undefined,
+        children: children as JSXElement[],
+        key: props.key !== undefined ? props.key : null,
     };
     return element;
 }

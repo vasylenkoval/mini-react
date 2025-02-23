@@ -2,7 +2,7 @@ import { JSXElement, Props, FC, propsCompareFnSymbol } from './jsx.js';
 import REAL_DOM from './dom.js';
 import { Hooks, processHooks, collectEffectCleanups } from './hooks.js';
 import { schedule } from './scheduler.js';
-import { EMPTY_ARR, EMPTY_OBJ } from './constants.js';
+import { EMPTY_ARR } from './constants.js';
 
 /**
  * Effect tags used to determine what to do with the fiber after a render.
@@ -98,7 +98,7 @@ interface Fiber<T extends string | FC = string | FC> {
     /**
      * Function to compare prev and next props.
      */
-    propsCompareFn: (prevProps: Props, nextProps: Props) => boolean;
+    propsCompareFn: ((prevProps: Props, nextProps: Props) => boolean) | null;
 }
 
 type MaybeFiber = Fiber | null;
@@ -114,23 +114,33 @@ let effectsToRun: (() => void)[] = [];
 let effectCleanupsToRun: (() => void)[] = [];
 let DOM = REAL_DOM;
 
+const defaultShallowEqual = (_prevProps: Props, _nextProps: Props) => {
+    return false;
+};
+
 function getNewFiber(): Fiber {
+    const props = { key: null, children: EMPTY_ARR };
     const fiber: Fiber = {
-        type: '',
         parent: null,
         child: null,
         sibling: null,
+        type: '',
+        props,
+        effectTag: EffectTag.add,
         old: null,
         isOld: false,
         dom: null,
         stateNode: null,
-        effectTag: EffectTag.add,
         didChangePos: false,
-        props: EMPTY_OBJ,
         version: 0,
         childElements: EMPTY_ARR,
-        fromElement: { type: '', props: EMPTY_OBJ, children: EMPTY_ARR, key: undefined },
-        propsCompareFn: defaultPropsCompareFn,
+        fromElement: {
+            type: '',
+            props,
+            children: EMPTY_ARR,
+            key: null,
+        },
+        propsCompareFn: defaultShallowEqual,
     };
     fiber.stateNode = {
         current: fiber,
@@ -152,12 +162,12 @@ export function createRoot(root: Node, element: JSXElement, fakeDom?: typeof REA
     const fiber = getNewFiber();
     fiber.type = APP_ROOT;
     fiber.dom = root;
-    fiber.props = { children: [element] };
+    fiber.props = { key: null, children: [element] };
     fiber.fromElement = {
         type: 'div',
         props: fiber.props,
         children: [element],
-        key: undefined,
+        key: null,
     };
     wipRoot = fiber;
     nextUnitOfWork = fiber;
@@ -417,11 +427,7 @@ function workloop(remainingMs: () => number) {
  * @param fiber - The component fiber to process.
  */
 function processComponentFiber(fiber: Fiber<FC>) {
-    if (
-        propsCompareFnSymbol in fiber.type &&
-        fiber.type[propsCompareFnSymbol] &&
-        fiber.propsCompareFn !== fiber.type[propsCompareFnSymbol]
-    ) {
+    if (propsCompareFnSymbol in fiber.type && fiber.type[propsCompareFnSymbol]) {
         fiber.propsCompareFn = fiber.type[propsCompareFnSymbol];
     }
 
@@ -483,7 +489,8 @@ function performUnitOfWork(fiber: Fiber): MaybeFiber {
     if (typeof fiber.type === 'function') {
         processComponentFiber(fiber as Fiber<FC>);
     }
-    diffChildren(fiber);
+
+    diffChildren(fiber, fiber.childElements);
     return nextFiber(fiber, wipRoot, (f) => f.effectTag !== EffectTag.skip);
 }
 
@@ -547,29 +554,12 @@ function findNextFiber(
     return null;
 }
 
-export function defaultPropsCompareFn(prevProps: Props, nextProps: Props): boolean {
-    if (prevProps === nextProps) return true;
-
-    const prevKeys = Object.keys(prevProps);
-    const nextKeys = Object.keys(nextProps);
-
-    if (prevKeys.length !== nextKeys.length) return false;
-
-    for (let i = 0; i < prevKeys.length; i++) {
-        const key = prevKeys[i];
-        if (prevProps[key] !== nextProps[key]) return false;
-    }
-
-    return true;
-}
-
 /**
  * Builds fiber children out of provided elements and reconciles DOM nodes with previous fiber tree.
  * @param wipFiberParent - Parent fiber to build children for.
  * @param elements - Child elements.
  */
-function diffChildren(wipFiberParent: Fiber) {
-    const elements = wipFiberParent.childElements;
+function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
     // If fiber is a dom fiber and was previously committed and currently has no child elements
     // but previous fiber had elements we can bail out of doing a full diff, instead just recreate
     // the current wip fiber.
@@ -609,10 +599,11 @@ function diffChildren(wipFiberParent: Fiber) {
     }
 
     let prevSibling: MaybeFiber = null;
-    for (let newElementIndex = 0; newElementIndex < elements.length; newElementIndex++) {
+    let newElementIndex = 0;
+    for (; newElementIndex < elements.length; newElementIndex++) {
         let newFiber: MaybeFiber = null;
-        const childElement = elements[newElementIndex] as JSXElement | undefined;
-        const oldFiberKey = childElement?.key ?? newElementIndex;
+        const childElement = elements[newElementIndex] as JSXElement;
+        const oldFiberKey = childElement.key ?? newElementIndex;
         const oldFiberByKey = oldFibersMapByKey.get(oldFiberKey);
         const oldFiberSeq = oldFibers[newElementIndex];
         const isSameTypeByKey = oldFiberByKey?.type === childElement?.type;
@@ -633,10 +624,10 @@ function diffChildren(wipFiberParent: Fiber) {
             newFiber.props = childElement.props;
             newFiber.version = oldFiberByKey.version + 1;
             newFiber.fromElement = childElement;
-            newFiber.propsCompareFn = oldFiberByKey.propsCompareFn;
+            const propsCompareFn = oldFiberByKey.propsCompareFn!;
+            newFiber.propsCompareFn = propsCompareFn;
 
             const isComponent = oldFiberByKey.type !== 'string';
-            const { propsCompareFn } = oldFiberByKey;
 
             const shouldSkip =
                 isSameElementByKey ||

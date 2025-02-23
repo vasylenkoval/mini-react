@@ -109,9 +109,7 @@ function Todo({
                     {todo.task}
                 </li>
                 <div className="Todo-buttons">
-                    <button onClick={toggleFrom}>
-                        <i className="fas fa-pen" />
-                    </button>
+                    <button onClick={toggleFrom}>Edit</button>
                     <button onClick={() => handleClick(todo.id)}>DELETE</button>
                 </div>
             </div>

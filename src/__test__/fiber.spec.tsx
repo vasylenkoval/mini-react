@@ -181,10 +181,8 @@ describe('fiber', () => {
         let childRenders = 0;
         let rerenderChild = () => {};
         const Child = () => {
-            debugger;
             const [, setCount] = useState(0);
             rerenderChild = () => {
-                debugger;
                 setCount((count) => ++count);
             };
             childRenders++;
@@ -563,5 +561,47 @@ describe('fiber', () => {
         /* Assert */
         expect(renderCount).toBe(1);
         expect(rootElement.innerHTML).toBe('<div><div>Child</div>2</div>');
+    });
+
+    it('should handle memoized components with custom props comparison', () => {
+        /* Arrange */
+        const rootElement = document.createElement('div');
+        let renderCount = 0;
+
+        const Child = memo(
+            ({ name: _name, count: _count }: { name: string; count: number }) => {
+                renderCount++;
+                return <div>Child</div>;
+            },
+            (prev, next) => prev.name === next.name
+        );
+
+        let setName: (name: string) => void;
+        let setCount: (count: number) => void;
+
+        const App = () => {
+            const [count, _setCount] = useState(0);
+            const [name, _setName] = useState('test');
+            setName = _setName;
+            setCount = _setCount;
+
+            return (
+                <div>
+                    <Child name={name} count={count} />
+                    {count}
+                </div>
+            );
+        };
+
+        /* Act */
+        createRoot(rootElement, <App />);
+        setCount!(1);
+        setCount!(2);
+        setCount!(3);
+        setName!('test2');
+
+        /* Assert */
+        expect(renderCount).toBe(2);
+        expect(rootElement.innerHTML).toBe('<div><div>Child</div>3</div>');
     });
 });
