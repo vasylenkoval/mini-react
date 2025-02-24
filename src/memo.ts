@@ -20,7 +20,6 @@ export function memo<T extends (...args: any[]) => any, TProps extends Props = P
     Component: T,
     compareFn: (prevProps: TProps, nextProps: TProps) => boolean = shallowEqual
 ): T {
-    debugger;
     function Memo(props: Props): JSXElement {
         // @ts-ignore
         return Component(props);

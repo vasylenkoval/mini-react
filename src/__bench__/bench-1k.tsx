@@ -38,7 +38,6 @@ dispatchRef.current({ type: 'UPDATE' });
 dispatchRef.current({ type: 'UPDATE' });
 dispatchRef.current({ type: 'UPDATE' });
 dispatchRef.current({ type: 'UPDATE' });
-debugger;
 dispatchRef.current({ type: 'UPDATE' });
 
 const end = performance.now();

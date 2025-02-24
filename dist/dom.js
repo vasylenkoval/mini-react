@@ -54,12 +54,7 @@ export function addProps(node, props, prevProps) {
             }
             if (isProp(propToReset)) {
                 const propName = getPropName(propToReset);
-                if (canSetDirect(propName, element)) {
-                    element[propName] = '';
-                }
-                else {
-                    element.removeAttribute(propName);
-                }
+                element.removeAttribute(propName);
             }
             else if (isEvent(propToReset)) {
                 element.removeEventListener(getEventName(propToReset), prevProps[propToReset]);

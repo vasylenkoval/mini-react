@@ -26,7 +26,6 @@ dispatchRef.current({ type: 'UPDATE' });
 dispatchRef.current({ type: 'UPDATE' });
 dispatchRef.current({ type: 'UPDATE' });
 dispatchRef.current({ type: 'UPDATE' });
-debugger;
 dispatchRef.current({ type: 'UPDATE' });
 const end = performance.now();
 console.log(`bench-1k: took ${end - start} ms`);
