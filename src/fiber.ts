@@ -658,10 +658,11 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
             deletions.push(oldFiberByKey);
         }
 
-        // Only store 2 levels.
+        // Only store 2 levels of previous fibers. Disconnect siblings.
         if (!!oldFiberByKey) {
             oldFiberByKey.old = null;
             oldFiberByKey.isOld = true;
+            oldFiberByKey.sibling = null;
         }
 
         // Connect siblings.
