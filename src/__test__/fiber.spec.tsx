@@ -334,8 +334,8 @@ describe('fiber', () => {
         const rootElement = document.createElement('div');
 
         const Item = (props: { id: number; key: number }) => {
-            const [count] = useState(props.id);
-            return <div>{count}</div>;
+            const [id] = useState(props.id);
+            return <div>{id}</div>;
         };
 
         const itemsArr = [1, 2, 3, 4, 5];
@@ -380,6 +380,15 @@ describe('fiber', () => {
 
         // Remove elements and re-shuffle
         newArr = [1, 3, 2];
+        populate(newArr);
+        expect(rootElement.innerHTML).toBe(
+            `<div id="root"><div id="header">List</div><div id="list">${newArr
+                .map((id) => `<div>${id}</div>`)
+                .join('')}</div></div>`
+        );
+
+        // Add a new element in between
+        newArr = [1, 3, 8, 2];
         populate(newArr);
         expect(rootElement.innerHTML).toBe(
             `<div id="root"><div id="header">List</div><div id="list">${newArr

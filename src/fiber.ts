@@ -303,19 +303,18 @@ function commitFiber(fiber: Fiber): MaybeAfterCommitFunc {
 
     if (fiber.didChangePos) {
         // Find closest parent that's not a component.
-        let parentWithDom: Fiber = fiber.parent!;
-        while (parentWithDom && !parentWithDom.dom) {
-            parentWithDom = parentWithDom.parent!;
-        }
-        const parentDom = parentWithDom.dom;
         const closestChildDom = fiber.dom ?? findNextFiber(fiber, fiber, (f) => !!f.dom)?.dom;
         const closestNextSiblingDom = fiber.sibling
             ? fiber.sibling?.dom ?? findNextFiber(fiber.sibling, fiber, (f) => !!f.dom)?.dom ?? null
             : null;
 
-        if (closestChildDom && parentDom) {
+        if (closestChildDom) {
             afterCommit = () => {
-                DOM.insertBefore(parentDom, closestChildDom, closestNextSiblingDom);
+                DOM.insertBefore(
+                    closestChildDom.parentNode!,
+                    closestChildDom,
+                    closestNextSiblingDom
+                );
             };
         }
     }
@@ -503,22 +502,22 @@ function defaultPredicate() {
  * If skipFn is provided, it will skip subtrees that don't pass the predicate.
  * @param currFiber - Current fiber that work was done on.
  * @param root - Top fiber to return to.
- * @param skipFn - Predicate to skip subtrees.
+ * @param continueFn - Function to filter the current node. If "false" is returned the current node is skipped.
  * @returns Next fiber to perform work on.
  */
 function nextFiber(
     currFiber: Fiber,
     root: MaybeFiber,
-    skipFn: (fiber: Fiber) => boolean = defaultPredicate,
+    continueFn: (fiber: Fiber) => boolean = defaultPredicate,
     skipChild = false
 ): MaybeFiber {
     // Visit up to the last child first.
-    if (currFiber.child && skipFn(currFiber.child) && !skipChild) {
+    if (currFiber.child && continueFn(currFiber.child) && !skipChild) {
         return currFiber.child;
     }
     let nextFiber: MaybeFiber = skipChild ? currFiber : currFiber.child ?? currFiber;
     while (nextFiber && nextFiber !== root) {
-        if (nextFiber.sibling && skipFn(nextFiber.sibling)) {
+        if (nextFiber.sibling && continueFn(nextFiber.sibling)) {
             return nextFiber.sibling; // Exhaust all siblings.
         } else if (nextFiber.sibling) {
             nextFiber = nextFiber.sibling; // If didn't pass the filter but exists - skip it.
@@ -586,9 +585,9 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
         return;
     }
 
-    // Collect all old fibers by key.
+    // Collect all old fibers by key, remove ones that are not in the new children array.
     const oldFibersMapByKey = new Map<string | number, Fiber>();
-    const oldFibers: Fiber[] = [];
+    let oldFibers: Fiber[] = [];
     let nextOldFiber = wipFiberParent.old && wipFiberParent.old.child;
     let nextOldFiberIndex = 0;
     while (nextOldFiber) {
@@ -596,6 +595,35 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
         oldFibersMapByKey.set(nextOldFiber?.fromElement.key ?? nextOldFiberIndex, nextOldFiber);
         nextOldFiber = nextOldFiber.sibling;
         nextOldFiberIndex++;
+    }
+
+    // Check if any nodes were removed
+    let deletesCount = oldFibers.length - elements.length;
+    if (deletesCount > 0) {
+        // Find all of the orphaned fibers and remove them by key
+        const elementsByKeyMap = new Map<string | number, JSXElement>();
+        for (let newElementIndex = 0; newElementIndex < elements.length; newElementIndex++) {
+            const childElement = elements[newElementIndex] as JSXElement;
+            const key = childElement.key ?? newElementIndex;
+            elementsByKeyMap.set(key, childElement);
+        }
+        let oldFiberIdx = 0;
+        for (const [oldFiberKey, oldFiber] of oldFibersMapByKey) {
+            const element = elementsByKeyMap.get(oldFiberKey);
+            if (!element) {
+                oldFiber.old = null;
+                oldFiber.isOld = true;
+                oldFiber.effectTag = EffectTag.delete;
+                deletions.push(oldFiber);
+                deletesCount--;
+                oldFibersMapByKey.delete(oldFiberKey);
+                oldFibers.splice(oldFiberIdx, 1);
+                if (deletesCount === 0) {
+                    break;
+                }
+            }
+            oldFiberIdx++;
+        }
     }
 
     let prevSibling: MaybeFiber = null;
