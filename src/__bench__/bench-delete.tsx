@@ -4,7 +4,7 @@ import { BenchMain, type BenchDispatch } from './app.js';
 
 type FAKEDOM = {
     createNode: (type: string) => Node;
-    addProps: (node: Node, props: Props, prevProps?: Props) => void;
+    addProps: (fiberRef: unknown, node: Node, props: Props, prevProps: Props | null) => void;
     removeChild: (parent: Node, child: Node) => void;
     appendChild: (parent: Node, child: Node) => void;
     replaceWith: (oldNode: ChildNode, newNode: Node) => void;

@@ -180,6 +180,9 @@ function deleteFiber(fiber) {
         }
         nextComponentChildFiber = findNextFiber(nextComponentChildFiber, fiber, (f) => typeof f.type !== 'string');
     }
+    fiber.effectTag = EffectTag.delete;
+    fiber.isOld = true;
+    fiber.old = null;
     fiber.child = null;
     fiber.sibling = null;
     fiber.parent = null;
@@ -216,7 +219,7 @@ function commitFiber(fiber) {
         parentWithDom = parentWithDom.parent;
     }
     if (fiber.effectTag === EffectTag.update) {
-        DOM.addProps(fiber.dom, fiber.props, fiber.old?.props);
+        DOM.addProps(fiber, fiber.dom, fiber.props, fiber.old?.props || null);
     }
     if (fiber.effectTag === EffectTag.add) {
         const parent = parentWithDom.dom;
@@ -335,7 +338,7 @@ function processComponentFiber(fiber) {
 function processDomFiber(fiber) {
     if (!fiber.dom) {
         fiber.dom = DOM.createNode(fiber.type);
-        DOM.addProps(fiber.dom, fiber.props);
+        DOM.addProps(fiber, fiber.dom, fiber.props, null);
     }
     fiber.childElements = fiber.fromElement.children ?? EMPTY_ARR;
 }
@@ -419,56 +422,36 @@ function diffChildren(wipFiberParent, elements) {
         !!wipFiberParent.old &&
         !!wipFiberParent.old.child) {
         const old = wipFiberParent.old;
-        old.effectTag = EffectTag.delete;
-        old.isOld = true;
-        old.old = null;
         deletions.push(old);
         wipFiberParent.old = null;
         wipFiberParent.effectTag = EffectTag.add;
         wipFiberParent.childElements = EMPTY_ARR;
         wipFiberParent.child = null;
         wipFiberParent.dom = DOM.createNode(wipFiberParent.type);
-        DOM.addProps(wipFiberParent.dom, wipFiberParent.props);
+        DOM.addProps(wipFiberParent, wipFiberParent.dom, wipFiberParent.props, null);
         return;
     }
-    // Collect all old fibers by key.
-    const oldFibersMapByKey = new Map();
-    let oldFibers = [];
+    // Collect all old fibers by key, remove ones that are not in the new children array.
+    const newElementsKeysSet = new Set();
+    for (let newElementIndex = 0; newElementIndex < elements.length; newElementIndex++) {
+        const childElement = elements[newElementIndex];
+        newElementsKeysSet.add(childElement.key ?? newElementIndex);
+    }
+    const oldFibersToDiffMapByKey = new Map();
+    let oldFibersToDiffSeq = [];
     let nextOldFiber = wipFiberParent.old && wipFiberParent.old.child;
     let nextOldFiberIndex = 0;
     while (nextOldFiber) {
-        oldFibers.push(nextOldFiber);
-        oldFibersMapByKey.set(nextOldFiber?.fromElement.key ?? nextOldFiberIndex, nextOldFiber);
+        const oldFiberKey = nextOldFiber.fromElement.key ?? nextOldFiberIndex;
+        if (!newElementsKeysSet.has(oldFiberKey)) {
+            deletions.push(nextOldFiber);
+        }
+        else {
+            oldFibersToDiffSeq.push(nextOldFiber);
+            oldFibersToDiffMapByKey.set(oldFiberKey, nextOldFiber);
+        }
         nextOldFiber = nextOldFiber.sibling;
         nextOldFiberIndex++;
-    }
-    // Check if any nodes were removed
-    let deletesCount = oldFibers.length - elements.length;
-    if (deletesCount > 0) {
-        // Find all of the orphaned fibers and remove them by key
-        const elementsByKeyMap = new Map();
-        for (let newElementIndex = 0; newElementIndex < elements.length; newElementIndex++) {
-            const childElement = elements[newElementIndex];
-            const key = childElement.key ?? newElementIndex;
-            elementsByKeyMap.set(key, childElement);
-        }
-        let oldFiberIdx = 0;
-        for (const [oldFiberKey, oldFiber] of oldFibersMapByKey) {
-            const element = elementsByKeyMap.get(oldFiberKey);
-            if (!element) {
-                oldFiber.old = null;
-                oldFiber.isOld = true;
-                oldFiber.effectTag = EffectTag.delete;
-                deletions.push(oldFiber);
-                deletesCount--;
-                oldFibersMapByKey.delete(oldFiberKey);
-                oldFibers.splice(oldFiberIdx, 1);
-                if (deletesCount === 0) {
-                    break;
-                }
-            }
-            oldFiberIdx++;
-        }
     }
     let prevSibling = null;
     let newElementIndex = 0;
@@ -476,8 +459,8 @@ function diffChildren(wipFiberParent, elements) {
         let newFiber = null;
         const childElement = elements[newElementIndex];
         const oldFiberKey = childElement.key ?? newElementIndex;
-        const oldFiberByKey = oldFibersMapByKey.get(oldFiberKey);
-        const oldFiberSeq = oldFibers[newElementIndex];
+        const oldFiberByKey = oldFibersToDiffMapByKey.get(oldFiberKey);
+        const oldFiberSeq = oldFibersToDiffSeq[newElementIndex];
         const isSameTypeByKey = oldFiberByKey?.type === childElement?.type;
         const isSameElementByKey = oldFiberByKey?.fromElement === childElement;
         // Same node, update props.
@@ -502,9 +485,16 @@ function diffChildren(wipFiberParent, elements) {
                 (isComponent && propsCompareFn(oldFiberByKey.props, childElement.props));
             if (shouldSkip) {
                 newFiber.effectTag = EffectTag.skip;
-                newFiber.child = oldFiberByKey.child;
-                if (newFiber.child) {
-                    newFiber.child.parent = newFiber;
+                const oldFiberChild = oldFiberByKey.child;
+                if (oldFiberChild) {
+                    newFiber.child = oldFiberChild;
+                    // Fix parent references on all direct child/sibling fibers.
+                    oldFiberChild.parent = newFiber;
+                    let oldFiberSibling = oldFiberChild.sibling;
+                    while (oldFiberSibling) {
+                        oldFiberSibling.parent = newFiber;
+                        oldFiberSibling = oldFiberSibling.sibling;
+                    }
                 }
             }
         }
@@ -519,7 +509,6 @@ function diffChildren(wipFiberParent, elements) {
         }
         // Delete old node.
         if (oldFiberByKey && !isSameTypeByKey) {
-            oldFiberByKey.effectTag = EffectTag.delete;
             deletions.push(oldFiberByKey);
         }
         // Only store 2 levels of previous fibers. Disconnect siblings.
@@ -538,14 +527,11 @@ function diffChildren(wipFiberParent, elements) {
         prevSibling = newFiber;
         // Old fiber is already a child, iterate until we reach last sibling.
         if (oldFiberByKey) {
-            oldFibersMapByKey.delete(oldFiberKey);
+            oldFibersToDiffMapByKey.delete(oldFiberKey);
         }
     }
     // Delete all orphaned old fibers.
-    for (const [, fiber] of oldFibersMapByKey) {
-        fiber.old = null;
-        fiber.isOld = true;
-        fiber.effectTag = EffectTag.delete;
+    for (const [, fiber] of oldFibersToDiffMapByKey) {
         deletions.push(fiber);
     }
 }

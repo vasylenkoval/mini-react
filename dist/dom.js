@@ -31,11 +31,12 @@ const canSetDirect = (propName, dom) => {
 };
 /**
  * Adds given properties to a DOM node. Reconciles new props with previous props if provided.
+ * @param fiberRef - reference to the fiber that holds this dom node
  * @param dom - DOM node to add props to.
  * @param props -  Props to add.
  * @param prevProps - Previously applied props.
  */
-export function addProps(node, props, prevProps) {
+export function addProps(fiberRef, node, props, prevProps) {
     // https://developer.mozilla.org/en-US/docs/Web/API/Node/nodeType#node.text_node
     if (node.nodeType === 3) {
         if (node.nodeValue !== props.nodeValue) {
@@ -84,6 +85,8 @@ export function addProps(node, props, prevProps) {
             element.addEventListener(eventName, props[propToAdd]);
         }
     }
+    // Add reference to the current fiber node
+    element['__fiberRef'] = fiberRef;
 }
 const nodeProto = globalThis.Node?.prototype;
 const nodeInsertBefore = nodeProto?.insertBefore;

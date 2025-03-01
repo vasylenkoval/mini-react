@@ -1,5 +1,5 @@
 /** @jsx jsx */
-import { createRoot } from '../fiber';
+import { Fiber, createRoot } from '../fiber';
 import { useMemo, useState, useEffect } from '../hooks';
 import { jsx, JSXElement } from '../jsx';
 import { memo } from '../memo';
@@ -612,5 +612,40 @@ describe('fiber', () => {
         /* Assert */
         expect(renderCount).toBe(2);
         expect(rootElement.innerHTML).toBe('<div><div>Child</div>3</div>');
+    });
+
+    it('should update parent references in siblings of the first memoized child elements', async () => {
+        /* Arrange */
+        const rootElement = document.createElement('div');
+
+        let forceRerender: () => void;
+
+        const App = () => {
+            const [, _forceRerender] = useState(0);
+            forceRerender = () => _forceRerender((prev) => ++prev);
+
+            const child = useMemo(() => {
+                return (
+                    <div id="memoizedElement">
+                        <div>1</div>
+                        <div>2</div>
+                    </div>
+                );
+            }, []);
+
+            return <div>{child}</div>;
+        };
+
+        /* Act */
+        createRoot(rootElement, <App />);
+        forceRerender!();
+
+        /** Assert */
+        type ElementWithFiber = Element & { __fiberRef: Fiber };
+        const memoizedElementDom = rootElement.querySelector('#memoizedElement')!;
+        const children = [...memoizedElementDom.childNodes.values()] as ElementWithFiber[];
+        const child1 = children[0];
+        const child2 = children[1];
+        expect(child1.__fiberRef.parent).toBe(child2.__fiberRef.parent);
     });
 });
