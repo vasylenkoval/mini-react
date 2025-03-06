@@ -183,6 +183,7 @@ describe('fiber', () => {
         const Child = () => {
             const [, setCount] = useState(0);
             rerenderChild = () => {
+                debugger;
                 setCount((count) => ++count);
             };
             childRenders++;
