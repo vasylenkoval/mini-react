@@ -608,8 +608,8 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
     }
 
     let prevSibling: MaybeFiber = null;
-    let newElementIndex = 0;
-    for (; newElementIndex < elements.length; newElementIndex++) {
+
+    for (let newElementIndex = 0; newElementIndex < elements.length; newElementIndex++) {
         let newFiber: MaybeFiber = null;
         const childElement = elements[newElementIndex] as JSXElement;
         const oldFiberKey = childElement.key ?? newElementIndex;
@@ -673,11 +673,12 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
             deletions.push(oldFiberByKey);
         }
 
-        // Only store 2 levels of previous fibers. Disconnect siblings.
-        if (!!oldFiberByKey) {
+        // Only store 2 levels of previous fibers. Disconnect siblings and parents.
+        if (oldFiberByKey) {
             oldFiberByKey.old = null;
             oldFiberByKey.isOld = true;
             oldFiberByKey.sibling = null;
+            oldFiberByKey.parent = null;
         }
 
         // Connect siblings.

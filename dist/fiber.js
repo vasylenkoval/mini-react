@@ -182,12 +182,12 @@ function deleteFiber(fiber) {
     }
     fiber.effectTag = EffectTag.delete;
     fiber.isOld = true;
-    fiber.old = null;
-    fiber.child = null;
-    fiber.sibling = null;
-    fiber.parent = null;
-    fiber.dom = null;
-    fiber.stateNode = null;
+    // fiber.old = null;
+    // fiber.child = null;
+    // fiber.sibling = null;
+    // fiber.parent = null;
+    // fiber.dom = null;
+    // fiber.stateNode = null;
     fiber.childElements = EMPTY_ARR;
 }
 /**
@@ -454,8 +454,7 @@ function diffChildren(wipFiberParent, elements) {
         nextOldFiberIndex++;
     }
     let prevSibling = null;
-    let newElementIndex = 0;
-    for (; newElementIndex < elements.length; newElementIndex++) {
+    for (let newElementIndex = 0; newElementIndex < elements.length; newElementIndex++) {
         let newFiber = null;
         const childElement = elements[newElementIndex];
         const oldFiberKey = childElement.key ?? newElementIndex;
@@ -511,11 +510,12 @@ function diffChildren(wipFiberParent, elements) {
         if (oldFiberByKey && !isSameTypeByKey) {
             deletions.push(oldFiberByKey);
         }
-        // Only store 2 levels of previous fibers. Disconnect siblings.
-        if (!!oldFiberByKey) {
+        // Only store 2 levels of previous fibers. Disconnect siblings and parents.
+        if (oldFiberByKey) {
             oldFiberByKey.old = null;
             oldFiberByKey.isOld = true;
             oldFiberByKey.sibling = null;
+            oldFiberByKey.parent = null;
         }
         // Connect siblings.
         if (newElementIndex === 0) {
