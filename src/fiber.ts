@@ -503,20 +503,28 @@ function nextFiber(
     continueFn: (fiber: Fiber) => boolean = defaultPredicate,
     skipChild = false
 ): MaybeFiber {
-    // Visit up to the last child first.
-    if (currFiber.child && continueFn(currFiber.child) && !skipChild) {
+    // 1. Check child first if allowed
+    if (!skipChild && currFiber.child && continueFn(currFiber.child)) {
         return currFiber.child;
     }
-    let nextFiber: MaybeFiber = skipChild ? currFiber : currFiber.child ?? currFiber;
-    while (nextFiber && nextFiber !== root) {
-        if (nextFiber.sibling && continueFn(nextFiber.sibling)) {
-            return nextFiber.sibling; // Exhaust all siblings.
-        } else if (nextFiber.sibling) {
-            nextFiber = nextFiber.sibling; // If didn't pass the filter but exists - skip it.
-        } else {
-            nextFiber = nextFiber.parent; // If doesn't exist go up the tree until we reach the root or undefined.
+
+    let current: MaybeFiber = skipChild ? currFiber : currFiber.child ?? currFiber;
+
+    // 2. Traverse up ancestors
+    while (current && current !== root) {
+        // 3. Check all siblings in a single pass
+        let sibling = current.sibling;
+        while (sibling) {
+            if (continueFn(sibling)) {
+                return sibling;
+            }
+            sibling = sibling.sibling;
         }
+
+        // 4. Move to parent if no valid siblings
+        current = current.parent;
     }
+
     return null;
 }
 
