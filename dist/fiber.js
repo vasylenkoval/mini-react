@@ -381,6 +381,20 @@ function nextFiber(currFiber, root, continueFn = defaultPredicate, skipChild = f
     }
     return null;
 }
+function nextFiber2(currFiber, root) {
+    let current = currFiber;
+    if (current.child) {
+        return current.child;
+    }
+    while (current && current !== root) {
+        let sibling = current.sibling;
+        if (sibling) {
+            return sibling;
+        }
+        current = current.parent;
+    }
+    return null;
+}
 /**
  * Finds a next fiber in the tree that matches the predicate. Searches the entire tree until found.
  * @param currFiber - Current fiber to start the search from.
@@ -392,12 +406,12 @@ function findNextFiber(currFiber, root, predicate) {
     if (!currFiber) {
         return null;
     }
-    let next = nextFiber(currFiber, root);
+    let next = nextFiber2(currFiber, root);
     while (next) {
         if (predicate(next)) {
             return next;
         }
-        next = nextFiber(next, root);
+        next = nextFiber2(next, root);
     }
     return null;
 }
