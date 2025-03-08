@@ -301,7 +301,7 @@ function deleteFiber(fiber: Fiber) {
  * @param fiber - Fiber to commit.
  */
 function commitFiber(fiber: Fiber) {
-    let afterCommitFn: MaybeAfterCommitFunc;
+    // if (fiber.didChangePos || fiber.effectTag === EffectTag.add) {
     if (fiber.didChangePos) {
         // Find closest parent that's not a component.
         const closestChildDom = fiber.dom ?? findNextFiber(fiber, fiber, (f) => !!f.dom)?.dom;
@@ -310,7 +310,7 @@ function commitFiber(fiber: Fiber) {
             : null;
 
         if (closestChildDom) {
-            afterCommitFn = () => {
+            afterCommitCbs.push(() => {
                 if (closestChildDom.nextSibling !== closestNextSiblingDom) {
                     DOM.insertBefore(
                         closestChildDom.parentNode!,
@@ -318,7 +318,7 @@ function commitFiber(fiber: Fiber) {
                         closestNextSiblingDom
                     );
                 }
-            };
+            });
         }
     }
 
@@ -584,7 +584,7 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
         oldIndex++;
     }
 
-    let lastPlacedIndex = 0;
+    // let lastPlacedIndex = 0;
     for (let newIdx = 0; newIdx < elements.length; newIdx++) {
         const childElement = elements[newIdx];
         const key = childElement.key ?? newIdx;
@@ -597,8 +597,9 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
 
             if (oldFiber.type === childElement.type) {
                 newFiber = reuseFiber(childElement, wipFiberParent, oldFiber);
-                newFiber.didChangePos = oldIdx < lastPlacedIndex;
-                lastPlacedIndex = Math.max(lastPlacedIndex, oldIdx);
+                newFiber.didChangePos = newIdx !== oldIdx;
+                // newFiber.didChangePos = newIdx !== oldIdx ? oldIdx < lastPlacedIndex : false;
+                // lastPlacedIndex = Math.max(lastPlacedIndex, oldIdx);
 
                 const shouldSkip =
                     oldFiber.fromElement === childElement ||

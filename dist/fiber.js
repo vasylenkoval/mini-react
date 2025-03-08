@@ -123,13 +123,10 @@ function commitRoot() {
                 nextFiberToCommit = nextFiber(nextFiberToCommit, wipRoot, (f) => f.didChangePos || f.effectTag !== EffectTag.skip);
             }
         }
-        // for (const cb of afterCommitCbs.reverse()) {
-        //     cb();
-        // }
         for (let i = afterCommitCbs.length - 1; i >= 0; i--) {
             afterCommitCbs[i]();
         }
-        afterCommitCbs = [];
+        afterCommitCbs.splice(0);
         if (wipRoot.type === APP_ROOT) {
             // first mount
             currentRoot = wipRoot;
@@ -199,6 +196,7 @@ function deleteFiber(fiber) {
  * @param fiber - Fiber to commit.
  */
 function commitFiber(fiber) {
+    // if (fiber.didChangePos || fiber.effectTag === EffectTag.add) {
     if (fiber.didChangePos) {
         // Find closest parent that's not a component.
         const closestChildDom = fiber.dom ?? findNextFiber(fiber, fiber, (f) => !!f.dom)?.dom;
@@ -433,7 +431,7 @@ function diffChildren(wipFiberParent, elements) {
         currentOldFiber = currentOldFiber.sibling;
         oldIndex++;
     }
-    let lastPlacedIndex = 0;
+    // let lastPlacedIndex = 0;
     for (let newIdx = 0; newIdx < elements.length; newIdx++) {
         const childElement = elements[newIdx];
         const key = childElement.key ?? newIdx;
@@ -444,8 +442,9 @@ function diffChildren(wipFiberParent, elements) {
             existingFibers.delete(key);
             if (oldFiber.type === childElement.type) {
                 newFiber = reuseFiber(childElement, wipFiberParent, oldFiber);
-                newFiber.didChangePos = oldIdx < lastPlacedIndex;
-                lastPlacedIndex = Math.max(lastPlacedIndex, oldIdx);
+                newFiber.didChangePos = newIdx !== oldIdx;
+                // newFiber.didChangePos = newIdx !== oldIdx ? oldIdx < lastPlacedIndex : false;
+                // lastPlacedIndex = Math.max(lastPlacedIndex, oldIdx);
                 const shouldSkip = oldFiber.fromElement === childElement ||
                     (typeof childElement.type !== 'string' &&
                         newFiber.propsCompareFn?.(oldFiber.props, childElement.props));
