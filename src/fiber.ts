@@ -602,34 +602,36 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
     let oldFiber = wipFiberParent.old?.child ?? null;
     let prevNewFiber: Fiber | null = null;
     let index = 0;
-    const existingFibers = new Map<string | number, { fiber: Fiber; index: number }>();
+    const existingOldFibers = new Map<string | number, { fiber: Fiber; idx: number }>();
     let currentOldFiber = oldFiber;
-    let oldIndex = 0;
+    let oldIdx = 0;
+    let skew = 0;
 
     // Map old fibers by key with their original indices
     while (currentOldFiber) {
-        const key = currentOldFiber.fromElement.key ?? oldIndex;
-        existingFibers.set(key, { fiber: currentOldFiber, index: oldIndex });
+        const key = currentOldFiber.fromElement.key ?? oldIdx;
+        existingOldFibers.set(key, {
+            fiber: currentOldFiber,
+            idx: oldIdx,
+        });
         currentOldFiber = currentOldFiber.sibling;
-        oldIndex++;
+        oldIdx++;
     }
 
     // let lastPlacedIndex = 0;
     for (let newIdx = 0; newIdx < elements.length; newIdx++) {
         const childElement = elements[newIdx];
         const key = childElement.key ?? newIdx;
-        const existing = existingFibers.get(key);
+        const existing = existingOldFibers.get(key);
         let newFiber: Fiber | null = null;
 
         if (existing) {
-            const { fiber: oldFiber, index: oldIdx } = existing;
-            existingFibers.delete(key);
+            const { fiber: oldFiber, idx: oldListIdx } = existing;
+            existingOldFibers.delete(key);
 
             if (oldFiber.type === childElement.type) {
                 newFiber = reuseFiber(childElement, wipFiberParent, oldFiber);
-                newFiber.didChangePos = newIdx !== oldIdx;
-                // newFiber.didChangePos = newIdx !== oldIdx ? oldIdx < lastPlacedIndex : false;
-                // lastPlacedIndex = Math.max(lastPlacedIndex, oldIdx);
+                newFiber.didChangePos = newIdx !== oldListIdx;
 
                 const shouldSkip =
                     oldFiber.fromElement === childElement ||
@@ -658,6 +660,7 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
         } else {
             // New fiber
             newFiber = addNewFiber(childElement, wipFiberParent);
+            skew++;
         }
 
         if (newFiber) {
@@ -669,7 +672,7 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
     }
 
     // Mark remaining old fibers for deletion
-    existingFibers.forEach(({ fiber }) => deletions.push(fiber));
+    existingOldFibers.forEach(({ fiber }) => deletions.push(fiber));
 }
 
 function addNewFiber(element: JSXElement, parent: Fiber): Fiber {

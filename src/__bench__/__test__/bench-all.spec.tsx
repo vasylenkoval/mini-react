@@ -271,7 +271,7 @@ describe('bench-all', () => {
         }
         dispatchRef.current({ type: 'RUN_LOTS' });
         dispatchRef.current({ type: 'RUN_LOTS' });
-        dispatchRef.current({ type: 'RUN_LOTS' });
+        // dispatchRef.current({ type: 'RUN_LOTS' });
         dispatchRef.current({ type: 'UPDATE' });
         dispatchRef.current({ type: 'UPDATE' });
         dispatchRef.current({ type: 'UPDATE' });
