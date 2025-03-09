@@ -186,6 +186,10 @@ function addToComponentRenderQueue(fiber: Fiber) {
     }
 }
 
+function nonSkippedAndNotPositionChanged(f: Fiber) {
+    return f.didChangePos || f.effectTag !== EffectTag.skip;
+}
+
 /**
  * Commits changes to the DOM after a render cycle has completed.
  */
@@ -202,21 +206,12 @@ function commitRoot() {
         while (nextFiberToCommit) {
             commitFiber(nextFiberToCommit);
 
-            if (nextFiberToCommit.effectTag === EffectTag.skip) {
-                // CANNOT KEEP TRAVERSING DOWN IF TOP LEVEL WAS SKIPPED.
-                nextFiberToCommit = nextFiber(
-                    nextFiberToCommit,
-                    wipRoot,
-                    (f) => f.didChangePos || f.effectTag !== EffectTag.skip,
-                    true
-                );
-            } else {
-                nextFiberToCommit = nextFiber(
-                    nextFiberToCommit,
-                    wipRoot,
-                    (f) => f.didChangePos || f.effectTag !== EffectTag.skip
-                );
-            }
+            nextFiberToCommit = nextFiber(
+                nextFiberToCommit,
+                wipRoot,
+                nonSkippedAndNotPositionChanged,
+                nextFiberToCommit.effectTag === EffectTag.skip
+            );
         }
 
         for (let i = afterCommitCbs.length - 1; i >= 0; i--) {
@@ -262,9 +257,17 @@ function commitRoot() {
     effectsToRun.splice(0);
 }
 
+function fiberWithDom(f: any) {
+    return !!f.dom;
+}
+
+function fiberComponent(f: any) {
+    return typeof f.type !== 'string';
+}
+
 function deleteFiber(fiber: Fiber) {
     // Find the closest child and remove it from the dom.
-    const closestChildDOM = fiber.dom ?? findNextFiber(fiber, fiber, (f) => !!f.dom)?.dom;
+    const closestChildDOM = fiber.dom ?? findNextFiber(fiber, fiber, fiberWithDom)?.dom;
     if (closestChildDOM && closestChildDOM.parentNode) {
         DOM.removeChild(closestChildDOM.parentNode, closestChildDOM);
     }
@@ -277,11 +280,7 @@ function deleteFiber(fiber: Fiber) {
                 effectCleanupsToRun.push(...cleanupFuncs.reverse());
             }
         }
-        nextComponentChildFiber = findNextFiber(
-            nextComponentChildFiber,
-            fiber,
-            (f) => typeof f.type !== 'string'
-        );
+        nextComponentChildFiber = findNextFiber(nextComponentChildFiber, fiber, fiberComponent);
     }
     fiber.effectTag = EffectTag.delete;
     fiber.isOld = true;
@@ -304,9 +303,9 @@ function commitFiber(fiber: Fiber) {
     // if (fiber.didChangePos || fiber.effectTag === EffectTag.add) {
     if (fiber.didChangePos) {
         // Find closest parent that's not a component.
-        const closestChildDom = fiber.dom ?? findNextFiber(fiber, fiber, (f) => !!f.dom)?.dom;
+        const closestChildDom = fiber.dom ?? findNextFiber(fiber, fiber, fiberWithDom)?.dom;
         const closestNextSiblingDom = fiber.sibling
-            ? fiber.sibling?.dom ?? findNextFiber(fiber.sibling, fiber, (f) => !!f.dom)?.dom ?? null
+            ? fiber.sibling?.dom ?? findNextFiber(fiber.sibling, fiber, fiberWithDom)?.dom ?? null
             : null;
 
         if (closestChildDom) {
@@ -482,7 +481,11 @@ function performUnitOfWork(fiber: Fiber): MaybeFiber {
     }
 
     diffChildren(fiber, fiber.childElements);
-    return nextFiber(fiber, wipRoot, (f) => f.effectTag !== EffectTag.skip);
+    return nextFiber(fiber, wipRoot, nonSkipped);
+}
+
+function nonSkipped(f: Fiber) {
+    return f.effectTag !== EffectTag.skip;
 }
 
 function defaultPredicate() {
