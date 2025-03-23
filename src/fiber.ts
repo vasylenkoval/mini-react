@@ -76,9 +76,9 @@ export interface Fiber<T extends string | FC = string | FC> {
      */
     effectTag: EffectTag;
     /**
-     * Indicates whether the current fiber preserved it's state but got re-ordered.
+     * Indicates whether the current fiber needs to placed. Placement means that the fiber is either new or moved.
      */
-    didChangePos: boolean;
+    shouldPlace: boolean;
     /**
      * The props of the fiber.
      */
@@ -132,7 +132,7 @@ function getNewFiber(): Fiber {
         isOld: false,
         dom: null,
         stateNode: null,
-        didChangePos: false,
+        shouldPlace: false,
         version: 0,
         childElements: EMPTY_ARR,
         fromElement: {
@@ -186,8 +186,8 @@ function addToComponentRenderQueue(fiber: Fiber) {
     }
 }
 
-function nonSkippedAndNotPositionChanged(f: Fiber) {
-    return f.didChangePos || f.effectTag !== EffectTag.skip;
+function placedOrNonSkipped(f: Fiber) {
+    return f.shouldPlace || f.effectTag !== EffectTag.skip;
 }
 
 /**
@@ -209,7 +209,7 @@ function commitRoot() {
             nextFiberToCommit = nextFiber(
                 nextFiberToCommit,
                 wipRoot,
-                nonSkippedAndNotPositionChanged,
+                placedOrNonSkipped,
                 nextFiberToCommit.effectTag === EffectTag.skip
             );
         }
@@ -300,7 +300,7 @@ function deleteFiber(fiber: Fiber) {
  * @param fiber - Fiber to commit.
  */
 function commitFiber(fiber: Fiber) {
-    if (fiber.didChangePos) {
+    if (fiber.shouldPlace) {
         // Find closest parent that's not a component.
         const closestChildDom = fiber.dom ?? findNextFiber(fiber, fiber, fiberWithDom)?.dom;
         if (closestChildDom) {
@@ -372,7 +372,7 @@ function pickNextComponentToRender(): MaybeFiber {
     newFiber.stateNode = stateNode;
     stateNode.current = newFiber;
     newFiber.effectTag = EffectTag.update;
-    newFiber.didChangePos = false;
+    newFiber.shouldPlace = false;
     newFiber.props = componentFiber.props;
     newFiber.version = componentFiber.version + 1;
     newFiber.childElements = componentFiber.childElements;
@@ -620,21 +620,24 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
         oldIdx++;
     }
 
-    const reusedFibersOldIndexes = [];
+    const newFibersAdded: Fiber[] = [];
+    const oldIndexesInNewList: number[] = [];
     for (let newIdx = 0; newIdx < elements.length; newIdx++) {
         const childElement = elements[newIdx];
         const key = childElement.key ?? newIdx;
         const existing = existingOldFibersMap.get(key);
         let newFiber: Fiber | null = null;
+        let currOldListIdx = -1;
 
         if (existing) {
             const { fiber: oldFiber, oldListIdx } = existing;
             existingOldFibersMap.delete(key);
-            reusedFibersOldIndexes.push(oldListIdx);
+            if (oldListIdx) {
+                currOldListIdx = oldListIdx;
+            }
 
             if (oldFiber.type === childElement.type) {
                 newFiber = reuseFiber(childElement, wipFiberParent, oldFiber);
-                // newFiber.didChangePos = newIdx !== oldListIdx;
 
                 const shouldSkip =
                     oldFiber.fromElement === childElement ||
@@ -670,6 +673,8 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
             else prevNewFiber!.sibling = newFiber;
             prevNewFiber = newFiber;
             index++;
+            oldIndexesInNewList.push(currOldListIdx);
+            newFibersAdded.push(newFiber);
         }
     }
 
@@ -677,52 +682,24 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
         deletions.push(entry.fiber);
     });
 
-    const indexesNotInLIS = getNotLIS(reusedFibersOldIndexes);
+    // Calculate which new fibers need to be placed
+    const placementInput = oldIndexesInNewList.map((oldIdx, currIdx) => ({
+        currIdx,
+        oldIdx,
+    }));
 
-    if (indexesNotInLIS.length) {
-        for (const idx of indexesNotInLIS) {
-            const current = existingOldFibersArr[idx].stateNode!.current;
-            current!.didChangePos = true;
+    const result = computeTransformActions(placementInput);
+    const indexesToPatch = result.map((item) => item.currIdx);
+
+    if (indexesToPatch.length === placementInput.length - 1) {
+        for (const newFiber of newFibersAdded) {
+            newFiber.shouldPlace = true;
+        }
+    } else {
+        for (const idxToPatch of indexesToPatch) {
+            newFibersAdded[idxToPatch].shouldPlace = true;
         }
     }
-}
-
-function getNotLIS(nums: number[]): number[] {
-    if (nums.length === 0) return [];
-
-    const tails: number[] = [nums[0]];
-    const notLIS: number[] = [];
-
-    for (let i = 1; i < nums.length; i++) {
-        const num = nums[i];
-
-        if (num > tails[tails.length - 1]) {
-            tails.push(num);
-        } else {
-            // Binary search for the first element >= num
-            let left = 0;
-            let right = tails.length - 1;
-
-            while (left < right) {
-                const mid = (left + right) >>> 1; // Faster than Math.floor()
-
-                if (tails[mid] < num) {
-                    left = mid + 1;
-                } else {
-                    right = mid;
-                }
-            }
-
-            notLIS.push(tails[left]);
-            tails[left] = num;
-        }
-    }
-
-    if (notLIS.length === nums.length - 1) {
-        notLIS.push(tails[0]);
-    }
-
-    return notLIS;
 }
 
 function addNewFiber(element: JSXElement, parent: Fiber): Fiber {
@@ -755,4 +732,88 @@ function reuseFiber(element: JSXElement, parent: Fiber, oldFiber: Fiber): Fiber 
     newFiber.stateNode = stateNode;
 
     return newFiber;
+}
+
+type ListElement = { currIdx: number; oldIdx: number };
+type InsertionAction = { currIdx: number; beforeOldIdx: number };
+
+function computeTransformActions(list: ListElement[]): InsertionAction[] {
+    const n = list.length;
+    const oldIndices = list.map((e) => e.oldIdx);
+
+    // Compute nextOld array: each position's next old element index in the list
+    const nextOld = new Int32Array(n).fill(-1);
+    let lastOldPos = -1;
+    for (let i = n - 1; i >= 0; i--) {
+        nextOld[i] = lastOldPos;
+        if (oldIndices[i] !== -1) {
+            lastOldPos = i;
+        }
+    }
+
+    // Compute LIS lengths and find elements in LIS
+    const lengths = new Uint32Array(n).fill(0);
+    const tails: number[] = [];
+    for (let i = 0; i < n; i++) {
+        const oldIdx = oldIndices[i];
+        if (oldIdx === -1) continue;
+        let low = 0,
+            high = tails.length;
+        while (low < high) {
+            const mid = (low + high) >> 1;
+            if (tails[mid] < oldIdx) {
+                low = mid + 1;
+            } else {
+                high = mid;
+            }
+        }
+        if (low === tails.length) {
+            tails.push(oldIdx);
+        } else {
+            tails[low] = oldIdx;
+        }
+        lengths[i] = low + 1;
+    }
+
+    const lisSet = new Set<number>();
+    let currentLength = tails.length;
+    for (let i = n - 1; i >= 0; i--) {
+        if (currentLength <= 0) break;
+        const oldIdx = oldIndices[i];
+        if (oldIdx === -1) continue;
+        if (lengths[i] === currentLength) {
+            lisSet.add(i);
+            currentLength--;
+        }
+    }
+
+    // Compute nextLIS array
+    const nextLIS = new Int32Array(n).fill(-1);
+    let lastLISPos = -1;
+    for (let i = n - 1; i >= 0; i--) {
+        if (lisSet.has(i)) {
+            lastLISPos = i;
+        }
+        nextLIS[i] = lastLISPos;
+    }
+
+    // Generate actions
+    const actions: InsertionAction[] = [];
+    for (let i = 0; i < n; i++) {
+        const elem = list[i];
+        if (elem.oldIdx === -1) {
+            // New element: insert before nextOld's oldIdx or end
+            const nextPos = nextOld[i];
+            const beforeOldIdx = nextPos !== -1 ? list[nextPos].oldIdx : -1;
+            actions.push({ currIdx: elem.currIdx, beforeOldIdx });
+        } else if (!lisSet.has(i)) {
+            // Existing element not in LIS: insert before nextLIS's oldIdx or end
+            const nextPos = nextLIS[i];
+            const beforeOldIdx = nextPos !== -1 ? list[nextPos].oldIdx : -1;
+            actions.push({ currIdx: elem.currIdx, beforeOldIdx });
+        }
+        // Elements in LIS are skipped
+    }
+
+    return actions;
 }

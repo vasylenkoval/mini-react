@@ -438,17 +438,17 @@ describe('fiber', () => {
         /* Arrange */
         const rootElement = document.createElement('div');
 
-        const Item = (props: { id: number; key: number }) => {
+        const Item = (props: { id: string; key: string }) => {
             const [id] = useState(props.id);
             return <div>{id}</div>;
         };
 
-        const itemsArr = [1, 2, 3, 4, 5];
-        let populate = (_itemsArr: number[]) => {};
+        const itemsArr = ['a', 'b', 'c', 'd', 'e'];
+        let populate = (_itemsArr: string[]) => {};
 
         const App = () => {
-            const [items, setItems] = useState<number[]>([]);
-            populate = (itemsArr: number[]) => setItems(itemsArr);
+            const [items, setItems] = useState<string[]>([]);
+            populate = (itemsArr: string[]) => setItems(itemsArr);
             return (
                 <div id="root">
                     <div id="header">List</div>
@@ -464,7 +464,7 @@ describe('fiber', () => {
         /* Act */
         createRoot(rootElement, <App />);
         populate(itemsArr);
-        let newArr = [5, 4, 3, 2, 1];
+        let newArr = ['e', 'd', 'c', 'b', 'a'];
         populate(newArr);
 
         /* Assert */
@@ -475,7 +475,7 @@ describe('fiber', () => {
         );
 
         // Re-shuffle
-        newArr = [1, 4, 3, 2, 5];
+        newArr = ['a', 'd', 'c', 'b', 'e'];
         debugger;
         populate(newArr);
         expect(rootElement.innerHTML).toBe(
@@ -485,7 +485,7 @@ describe('fiber', () => {
         );
 
         // Remove elements and re-shuffle
-        newArr = [1, 3, 2];
+        newArr = ['a', 'c', 'b'];
         populate(newArr);
         expect(rootElement.innerHTML).toBe(
             `<div id="root"><div id="header">List</div><div id="list">${newArr
@@ -494,7 +494,7 @@ describe('fiber', () => {
         );
 
         // Add a new element in between
-        newArr = [1, 3, 8, 2];
+        newArr = ['a', 'c', 'h', 'b'];
         populate(newArr);
         expect(rootElement.innerHTML).toBe(
             `<div id="root"><div id="header">List</div><div id="list">${newArr
@@ -755,48 +755,6 @@ describe('fiber', () => {
         expect(child1.__fiberRef.parent).toBe(child2.__fiberRef.parent);
     });
 
-    it('test LDS', () => {
-        function getNotLIS(nums: number[]): number[] {
-            if (nums.length === 0) return [];
-
-            // Compute lisLeft: LIS ending at each index
-            const lisLeft: number[] = new Array(nums.length).fill(1);
-            for (let i = 0; i < nums.length; i++) {
-                for (let j = 0; j < i; j++) {
-                    if (nums[j] < nums[i] && lisLeft[i] < lisLeft[j] + 1) {
-                        lisLeft[i] = lisLeft[j] + 1;
-                    }
-                }
-            }
-
-            // Compute lisRight: LIS starting at each index
-            const lisRight: number[] = new Array(nums.length).fill(1);
-            for (let i = nums.length - 1; i >= 0; i--) {
-                for (let j = i + 1; j < nums.length; j++) {
-                    if (nums[i] < nums[j] && lisRight[i] < lisRight[j] + 1) {
-                        lisRight[i] = lisRight[j] + 1;
-                    }
-                }
-            }
-
-            const maxLIS = Math.max(...lisLeft);
-            const notLIS: number[] = [];
-
-            for (let i = 0; i < nums.length; i++) {
-                if (lisLeft[i] + lisRight[i] - 1 < maxLIS) {
-                    notLIS.push(nums[i]);
-                }
-            }
-
-            return notLIS;
-        }
-
-        // expect(getNotLIS([1, 7, 2, 8, 3, 11, 9, 10])).toEqual([7, 8, 11]);
-        expect(getNotLIS([5, 4, 3, 2, 1])).toEqual([5, 4, 3, 2, 1]);
-        expect(getNotLIS([4, 1, 2, 3, 0])).toEqual([4, 0]);
-        // expect(getNotLIS([1, 3, 2, 4, 5])).toEqual([3, 2]);
-    });
-
     it('test compute insertions 1', () => {
         // Example usage:
         const first = ['a', 'b', 'c'];
@@ -858,5 +816,28 @@ describe('fiber', () => {
                 before: null,
             },
         ]);
+    });
+
+    it('test compute insertions 5', () => {
+        // Example usage:
+        const first = ['a', 'b', 'c', 'd', 'e', 'f'];
+        const second = ['f', 'e', 'd', 'c', 'b', 'a'];
+
+        const list = prepareInput(first, second);
+        const actions = computeTransformActions(list);
+        const formattedActions = convertOutput(actions, first, second);
+
+        expect(formattedActions).toEqual([]);
+    });
+
+    it('test compute insertions 6', () => {
+        const first = ['e', 'd', 'c', 'b', 'a'];
+        const second = ['a', 'd', 'c', 'b', 'e'];
+
+        const list = prepareInput(first, second);
+        const actions = computeTransformActions(list);
+        const formattedActions = convertOutput(actions, first, second);
+
+        expect(formattedActions).toEqual([]);
     });
 });
