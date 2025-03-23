@@ -919,8 +919,8 @@ describe('fiber', () => {
         }
 
         // Example usage:
-        const first = ['a', 'b', 'c', 'd'];
-        const second = ['b', 'd', 'c', 'a'];
+        const first = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+        const second = ['b', 'd', 'c', 'a', 'e', 'f', 'g'];
         const oldIndices = prepareInput(first, second); // [1, 3, 2, 0]
         const movedIndexes = computeTransformActions(oldIndices); // [1, 3]
         console.log(movedIndexes.map((i) => second[i])); // ['d', 'a']
