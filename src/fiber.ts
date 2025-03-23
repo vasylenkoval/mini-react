@@ -310,13 +310,13 @@ function commitFiber(fiber: Fiber) {
                       findNextFiber(fiber.sibling, fiber, fiberWithDom)?.dom ??
                       null
                     : null;
-                if (closestChildDom.nextSibling != closestNextSiblingDom) {
-                    DOM.insertBefore(
-                        closestChildDom.parentNode!,
-                        closestChildDom,
-                        closestNextSiblingDom
-                    );
-                }
+                // if (closestChildDom.nextSibling != closestNextSiblingDom) {
+                DOM.insertBefore(
+                    closestChildDom.parentNode!,
+                    closestChildDom,
+                    closestNextSiblingDom
+                );
+                // }
             });
         }
     }
@@ -635,7 +635,7 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
 
             if (oldFiber.type === childElement.type) {
                 newFiber = reuseFiber(childElement, wipFiberParent, oldFiber);
-
+                // newFiber.shouldPlace = oldListIdx !== newIdx;
                 const shouldSkip =
                     oldFiber.fromElement === childElement ||
                     (typeof childElement.type !== 'string' &&
@@ -678,6 +678,11 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
     existingOldFibersMap.forEach((entry) => {
         deletions.push(entry.fiber);
     });
+
+    // If we are inserting completely new elements we can skip the diffing process
+    if (!oldFiber) {
+        return;
+    }
 
     // Calculate which new fibers need to be placed
     const placementInput = oldIndexesInNewList.map((oldIdx, currIdx) => ({
@@ -733,7 +738,7 @@ function computeTransformActions(list: ListElement[]): InsertionAction[] {
     const oldIndices = list.map((e) => e.oldIdx);
 
     // Compute nextOld array: each position's next old element index in the list
-    const nextOld = new Int32Array(n).fill(-1);
+    const nextOld = new Array(n).fill(-1);
     let lastOldPos = -1;
     for (let i = n - 1; i >= 0; i--) {
         nextOld[i] = lastOldPos;
@@ -743,7 +748,7 @@ function computeTransformActions(list: ListElement[]): InsertionAction[] {
     }
 
     // Compute LIS lengths and find elements in LIS
-    const lengths = new Uint32Array(n).fill(0);
+    const lengths = new Array(n).fill(0);
     const tails: number[] = [];
     for (let i = 0; i < n; i++) {
         const oldIdx = oldIndices[i];
@@ -779,7 +784,7 @@ function computeTransformActions(list: ListElement[]): InsertionAction[] {
     }
 
     // Compute nextLIS array
-    const nextLIS = new Int32Array(n).fill(-1);
+    const nextLIS = new Array(n).fill(-1);
     let lastLISPos = -1;
     for (let i = n - 1; i >= 0; i--) {
         if (lisSet.has(i)) {

@@ -319,25 +319,25 @@ describe('fiber', () => {
         expect(rootElement.innerHTML).toBe('<div><div>1</div><div>2</div></div>');
     });
 
-    it('should render 10000 items', () => {
+    it('should render 10000 items and then swap', () => {
         /* Arrange */
         const rootElement = document.createElement('div');
 
-        const Item = (props: { index: number }) => {
+        const Item = (props: { index: number; key: number }) => {
             return <div id={`item-${props.index}`}>{props.index}</div>;
         };
-        const itemsArr = Array.from({ length: 10000 }, (_, index) => index);
-        let populate = () => {};
+
+        let populate = (itemsArr: number[]) => {};
         const App = () => {
             const [items, setItems] = useState<number[]>([]);
-            populate = () => setItems(itemsArr);
+            populate = (itemsArr: number[]) => setItems(itemsArr);
 
             return (
                 <div id="root">
                     <div id="header">List</div>
                     <div id="list">
                         {items.map((index) => (
-                            <Item index={index} />
+                            <Item key={index} index={index} />
                         ))}
                     </div>
                 </div>
@@ -346,7 +346,8 @@ describe('fiber', () => {
 
         /* Act */
         createRoot(rootElement, <App />);
-        populate();
+        let itemsArr = Array.from({ length: 10000 }, (_, index) => index);
+        populate(itemsArr);
 
         /* Assert */
         expect(rootElement.innerHTML).toBe(
@@ -354,6 +355,33 @@ describe('fiber', () => {
                 .map((item) => `<div id="item-${item}">${item}</div>`)
                 .join('')}</div></div>`
         );
+
+        // Swap last and first elements
+        itemsArr = itemsArr.slice();
+        [itemsArr[0], itemsArr[itemsArr.length - 1]] = [itemsArr[itemsArr.length - 1], itemsArr[0]];
+        populate(itemsArr);
+
+        /* Assert */
+        expect(rootElement.innerHTML).toBe(
+            `<div id="root"><div id="header">List</div><div id="list">${itemsArr
+                .map((item) => `<div id="item-${item}">${item}</div>`)
+                .join('')}</div></div>`
+        );
+
+        // completely reverse the list
+        itemsArr = itemsArr.slice().reverse();
+        populate(itemsArr);
+
+        /* Assert */
+        expect(rootElement.innerHTML).toBe(
+            `<div id="root"><div id="header">List</div><div id="list">${itemsArr
+                .map((item) => `<div id="item-${item}">${item}</div>`)
+                .join('')}</div></div>`
+        );
+
+        // remove half of the list
+        itemsArr = itemsArr.filter((_, index) => index % 2 === 0);
+        populate(itemsArr);
     });
 
     it('should delete item from a list', () => {
