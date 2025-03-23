@@ -690,6 +690,11 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
         oldIdx,
     }));
 
+    // Improvements
+    // We should probably only pass it old items, everything that's new should be placed by default
+    // The input could just be an array of numbers
+    // The return also does not need to be an object
+    // We do not need to know before what exact item we need to place it before
     const result = computeTransformActions(placementInput);
     const indexesToPatch = result.map((item) => item.currIdx);
 
@@ -738,7 +743,7 @@ function computeTransformActions(list: ListElement[]): InsertionAction[] {
     const oldIndices = list.map((e) => e.oldIdx);
 
     // Compute nextOld array: each position's next old element index in the list
-    const nextOld = new Array(n).fill(-1);
+    const nextOld = new Int32Array(n).fill(-1);
     let lastOldPos = -1;
     for (let i = n - 1; i >= 0; i--) {
         nextOld[i] = lastOldPos;
@@ -748,7 +753,7 @@ function computeTransformActions(list: ListElement[]): InsertionAction[] {
     }
 
     // Compute LIS lengths and find elements in LIS
-    const lengths = new Array(n).fill(0);
+    const lengths = new Uint32Array(n).fill(0);
     const tails: number[] = [];
     for (let i = 0; i < n; i++) {
         const oldIdx = oldIndices[i];
@@ -784,7 +789,7 @@ function computeTransformActions(list: ListElement[]): InsertionAction[] {
     }
 
     // Compute nextLIS array
-    const nextLIS = new Array(n).fill(-1);
+    const nextLIS = new Int32Array(n).fill(-1);
     let lastLISPos = -1;
     for (let i = n - 1; i >= 0; i--) {
         if (lisSet.has(i)) {

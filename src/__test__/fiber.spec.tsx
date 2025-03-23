@@ -857,4 +857,72 @@ describe('fiber', () => {
 
         expect(formattedActions).toEqual([]);
     });
+    it('test compute insertions on 10000 items', () => {
+        // Example usage:
+        const first = Array.from({ length: 100 }, (_, index) => index);
+        const second = Array.from({ length: 500 }, (_, index) => index);
+
+        const list = prepareInput(first, second);
+        const actions = computeTransformActions(list);
+        const formattedActions = convertOutput(actions, first, second);
+
+        expect(formattedActions.length).toBe(10000);
+    });
+
+    it('test compute insertions 6', () => {
+        function computeTransformActions(oldIndices: number[]): number[] {
+            const n = oldIndices.length;
+            const lengths = new Uint32Array(n);
+            const tails: number[] = [];
+
+            // Compute LIS using binary search optimization
+            for (let i = 0; i < n; i++) {
+                const val = oldIndices[i];
+                let low = 0,
+                    high = tails.length;
+
+                // Fast binary search using bitwise operations
+                while (low < high) {
+                    const mid = (low + high) >>> 1;
+                    tails[mid] < val ? (low = mid + 1) : (high = mid);
+                }
+
+                if (low === tails.length) tails.push(val);
+                else tails[low] = val;
+                lengths[i] = low + 1;
+            }
+
+            // Identify elements in LIS (don't need moving)
+            const lisMembers = new Uint8Array(n);
+            let currentLen = tails.length;
+            for (let i = n - 1; i >= 0 && currentLen > 0; i--) {
+                if (lengths[i] === currentLen) {
+                    lisMembers[i] = 1;
+                    currentLen--;
+                }
+            }
+
+            // Collect indexes of elements needing movement
+            const moved: number[] = [];
+            for (let i = 0; i < n; i++) {
+                if (!lisMembers[i]) moved.push(i);
+            }
+
+            return moved;
+        }
+
+        // Helper function to convert lists to oldIndices format
+        function prepareInput<T>(first: T[], second: T[]): number[] {
+            const indexMap = new Map<T, number>();
+            first.forEach((v, i) => indexMap.set(v, i));
+            return second.map((v) => indexMap.get(v)!);
+        }
+
+        // Example usage:
+        const first = ['a', 'b', 'c', 'd'];
+        const second = ['b', 'd', 'c', 'a'];
+        const oldIndices = prepareInput(first, second); // [1, 3, 2, 0]
+        const movedIndexes = computeTransformActions(oldIndices); // [1, 3]
+        console.log(movedIndexes.map((i) => second[i])); // ['d', 'a']
+    });
 });
