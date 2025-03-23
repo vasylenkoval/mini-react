@@ -304,13 +304,12 @@ function commitFiber(fiber: Fiber) {
         // Find closest parent that's not a component.
         const closestChildDom = fiber.dom ?? findNextFiber(fiber, fiber, fiberWithDom)?.dom;
         if (closestChildDom) {
-            const closestNextSiblingDom = fiber.sibling
-                ? fiber.sibling?.dom ??
-                  findNextFiber(fiber.sibling, fiber, fiberWithDom)?.dom ??
-                  null
-                : null;
-
             afterCommitCbs.push(() => {
+                const closestNextSiblingDom = fiber.sibling
+                    ? fiber.sibling?.dom ??
+                      findNextFiber(fiber.sibling, fiber, fiberWithDom)?.dom ??
+                      null
+                    : null;
                 if (closestChildDom.nextSibling != closestNextSiblingDom) {
                     DOM.insertBefore(
                         closestChildDom.parentNode!,
@@ -632,9 +631,7 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
         if (existing) {
             const { fiber: oldFiber, oldListIdx } = existing;
             existingOldFibersMap.delete(key);
-            if (oldListIdx) {
-                currOldListIdx = oldListIdx;
-            }
+            currOldListIdx = oldListIdx;
 
             if (oldFiber.type === childElement.type) {
                 newFiber = reuseFiber(childElement, wipFiberParent, oldFiber);
@@ -691,14 +688,8 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
     const result = computeTransformActions(placementInput);
     const indexesToPatch = result.map((item) => item.currIdx);
 
-    if (indexesToPatch.length === placementInput.length - 1) {
-        for (const newFiber of newFibersAdded) {
-            newFiber.shouldPlace = true;
-        }
-    } else {
-        for (const idxToPatch of indexesToPatch) {
-            newFibersAdded[idxToPatch].shouldPlace = true;
-        }
+    for (const idxToPatch of indexesToPatch) {
+        newFibersAdded[idxToPatch].shouldPlace = true;
     }
 }
 

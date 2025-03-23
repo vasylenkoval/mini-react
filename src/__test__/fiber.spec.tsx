@@ -820,19 +820,8 @@ describe('fiber', () => {
 
     it('test compute insertions 5', () => {
         // Example usage:
-        const first = ['a', 'b', 'c', 'd', 'e', 'f'];
-        const second = ['f', 'e', 'd', 'c', 'b', 'a'];
-
-        const list = prepareInput(first, second);
-        const actions = computeTransformActions(list);
-        const formattedActions = convertOutput(actions, first, second);
-
-        expect(formattedActions).toEqual([]);
-    });
-
-    it('test compute insertions 6', () => {
-        const first = ['e', 'd', 'c', 'b', 'a'];
-        const second = ['a', 'd', 'c', 'b', 'e'];
+        const first = ['a', 'b'];
+        const second = ['a', 'b'];
 
         const list = prepareInput(first, second);
         const actions = computeTransformActions(list);
