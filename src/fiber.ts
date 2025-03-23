@@ -300,17 +300,18 @@ function deleteFiber(fiber: Fiber) {
  * @param fiber - Fiber to commit.
  */
 function commitFiber(fiber: Fiber) {
-    // if (fiber.didChangePos || fiber.effectTag === EffectTag.add) {
     if (fiber.didChangePos) {
         // Find closest parent that's not a component.
         const closestChildDom = fiber.dom ?? findNextFiber(fiber, fiber, fiberWithDom)?.dom;
-        const closestNextSiblingDom = fiber.sibling
-            ? fiber.sibling?.dom ?? findNextFiber(fiber.sibling, fiber, fiberWithDom)?.dom ?? null
-            : null;
-
         if (closestChildDom) {
+            const closestNextSiblingDom = fiber.sibling
+                ? fiber.sibling?.dom ??
+                  findNextFiber(fiber.sibling, fiber, fiberWithDom)?.dom ??
+                  null
+                : null;
+
             afterCommitCbs.push(() => {
-                if (closestChildDom.nextSibling !== closestNextSiblingDom) {
+                if (closestChildDom.nextSibling != closestNextSiblingDom) {
                     DOM.insertBefore(
                         closestChildDom.parentNode!,
                         closestChildDom,
@@ -602,36 +603,38 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
     let oldFiber = wipFiberParent.old?.child ?? null;
     let prevNewFiber: Fiber | null = null;
     let index = 0;
-    const existingOldFibers = new Map<string | number, { fiber: Fiber; idx: number }>();
+    const existingOldFibersMap = new Map<string | number, { fiber: Fiber; oldListIdx: number }>();
+    const existingOldFibersArr: Fiber[] = [];
     let currentOldFiber = oldFiber;
     let oldIdx = 0;
-    let skew = 0;
 
     // Map old fibers by key with their original indices
     while (currentOldFiber) {
         const key = currentOldFiber.fromElement.key ?? oldIdx;
-        existingOldFibers.set(key, {
+        existingOldFibersMap.set(key, {
             fiber: currentOldFiber,
-            idx: oldIdx,
+            oldListIdx: oldIdx,
         });
+        existingOldFibersArr.push(currentOldFiber);
         currentOldFiber = currentOldFiber.sibling;
         oldIdx++;
     }
 
-    // let lastPlacedIndex = 0;
+    const reusedFibersOldIndexes = [];
     for (let newIdx = 0; newIdx < elements.length; newIdx++) {
         const childElement = elements[newIdx];
         const key = childElement.key ?? newIdx;
-        const existing = existingOldFibers.get(key);
+        const existing = existingOldFibersMap.get(key);
         let newFiber: Fiber | null = null;
 
         if (existing) {
-            const { fiber: oldFiber, idx: oldListIdx } = existing;
-            existingOldFibers.delete(key);
+            const { fiber: oldFiber, oldListIdx } = existing;
+            existingOldFibersMap.delete(key);
+            reusedFibersOldIndexes.push(oldListIdx);
 
             if (oldFiber.type === childElement.type) {
                 newFiber = reuseFiber(childElement, wipFiberParent, oldFiber);
-                newFiber.didChangePos = newIdx !== oldListIdx;
+                // newFiber.didChangePos = newIdx !== oldListIdx;
 
                 const shouldSkip =
                     oldFiber.fromElement === childElement ||
@@ -660,7 +663,6 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
         } else {
             // New fiber
             newFiber = addNewFiber(childElement, wipFiberParent);
-            skew++;
         }
 
         if (newFiber) {
@@ -671,8 +673,56 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
         }
     }
 
-    // Mark remaining old fibers for deletion
-    existingOldFibers.forEach(({ fiber }) => deletions.push(fiber));
+    existingOldFibersMap.forEach((entry) => {
+        deletions.push(entry.fiber);
+    });
+
+    const indexesNotInLIS = getNotLIS(reusedFibersOldIndexes);
+
+    if (indexesNotInLIS.length) {
+        for (const idx of indexesNotInLIS) {
+            const current = existingOldFibersArr[idx].stateNode!.current;
+            current!.didChangePos = true;
+        }
+    }
+}
+
+function getNotLIS(nums: number[]): number[] {
+    if (nums.length === 0) return [];
+
+    const tails: number[] = [nums[0]];
+    const notLIS: number[] = [];
+
+    for (let i = 1; i < nums.length; i++) {
+        const num = nums[i];
+
+        if (num > tails[tails.length - 1]) {
+            tails.push(num);
+        } else {
+            // Binary search for the first element >= num
+            let left = 0;
+            let right = tails.length - 1;
+
+            while (left < right) {
+                const mid = (left + right) >>> 1; // Faster than Math.floor()
+
+                if (tails[mid] < num) {
+                    left = mid + 1;
+                } else {
+                    right = mid;
+                }
+            }
+
+            notLIS.push(tails[left]);
+            tails[left] = num;
+        }
+    }
+
+    if (notLIS.length === nums.length - 1) {
+        notLIS.push(tails[0]);
+    }
+
+    return notLIS;
 }
 
 function addNewFiber(element: JSXElement, parent: Fiber): Fiber {

@@ -1,10 +1,4 @@
-/** @jsx jsx */
-import { createRoot } from '../fiber.js';
-import { jsx } from '../jsx.js';
-import { useState, useEffect, useReducer } from '../hooks.js';
-const root = document.getElementById('root');
-const style = document.createElement('style');
-style.textContent = `
+var m=[];var S=Symbol("propsCompareFn"),O="TEXT";function V(e,t=[]){for(let n of e){let o=typeof n;if(o==="object"&&n){Array.isArray(n)?V(n,t):t.push(n);continue}(o==="string"||o==="number")&&t.push({type:O,props:{nodeValue:n},children:m,key:null})}return t.length?t:m}function s(e,t,...n){let o=t??{},r=null;return n.length>0&&(r=V(n),o.children=r),{type:e,props:o,children:r,key:o.key!==void 0?o.key:null}}function se(e){return e===O?document.createTextNode(""):document.createElement(e)}var ce="children",de="on",_=e=>e.startsWith(de),B=e=>e!==ce&&!_(e),Y=e=>e.toLowerCase().substring(2),U=e=>e==="className"?"class":e,ue=(e,t)=>e!="width"&&e!="height"&&e!="href"&&e!="list"&&e!="form"&&e!="tabIndex"&&e!="download"&&e!="rowSpan"&&e!="colSpan"&&e!="role"&&e!="popover"&&e in t;function ae(e,t,n,o){if(t.nodeType===3){t.nodeValue!==n.nodeValue&&(t.nodeValue=n.nodeValue);return}let r=t;if(o){for(let i in o)if(!(i in n))if(B(i)){let l=U(i);r.removeAttribute(l)}else _(i)&&r.removeEventListener(Y(i),o[i])}for(let i in n){if(o&&n[i]===o[i])continue;let l=n[i];if(B(i)&&typeof l=="string"){let c=U(i);ue(c,r)?r[c]=l:r.setAttribute(c,l)}else if(_(i)){let c=Y(i);o&&o[i]&&r.removeEventListener(c,o[i]),r.addEventListener(c,n[i])}}r.__fiberRef=e}var I=globalThis.Node?.prototype,pe=I?.insertBefore,fe=I?.removeChild,me=I?.appendChild;function he(e,t){fe.call(e,t)}function ge(e,t){me.call(e,t)}function ye(e,t){e.replaceWith(t)}function be(e,t,n){pe.call(e,t,n)}var q={createNode:se,addProps:ae,removeChild:he,appendChild:ge,replaceWith:ye,insertBefore:be};var p={hooks:[],notifyOnStateChange:()=>{},scheduleEffect:()=>{}},y=-1;function z(e,t,n){for(let o of e)o.type===0&&o.pending&&(o.value=o.pending.value,o.pending=void 0);p.hooks=e,p.notifyOnStateChange=t,p.scheduleEffect=n,y=-1}function b(e){y++;let t=p.hooks[y];if(t)return t.notify=p.notifyOnStateChange,[t.value,t.setter];let n={type:0,notify:p.notifyOnStateChange,value:typeof e=="function"?e():e,setter(o){let r=n.pending?n.pending.value:n.value,i=typeof o=="function"?o:void 0,l=i?i(r):o;l!==r&&(n.pending={value:l},n.notify())}};return p.hooks.push(n),[n.value,n.setter]}function G(e){let t;for(let n of e)n.type===1&&n.cleanup&&(t??(t=[])).push(n.cleanup);return t}function Q(e,t){let n=e();typeof n=="function"&&(t.cleanup=n)}function Te(e,t){return!e||!t?!1:e.length===t.length&&(e.length===0||e.every((n,o)=>n===t[o]))}function K(e,t){y++;let n=p.scheduleEffect,o=p.hooks[y];if(o){Te(t,o.deps)||(n(()=>Q(e,o),o.cleanup??null),o.deps=t);return}let r={type:1,deps:t};p.hooks.push(r),n(()=>Q(e,r),null)}function Ee(e){y++;let t=p.hooks[y];if(t)return t.value;let n={type:2,value:{current:e}};return p.hooks.push(n),n.value}function Z(e,t,n){let o=Ee({dispatch:void 0,initState:n?n(t):t}),[r,i]=b(o.current.initState);if(o.current.dispatch)return[r,o.current.dispatch];function l(c){i(E=>e(E,c))}return o.current.dispatch=l,[r,l]}function k(e){return e(ke)}function ke(){return 100}var ee="root",T,M=[],d,ve,v=[],x=[],C=[],N=[],h=q,te=(e,t)=>!1;function H(){let e={key:null,children:m},t={parent:null,child:null,sibling:null,type:"",props:e,effectTag:0,old:null,isOld:!1,dom:null,stateNode:null,didChangePos:!1,version:0,childElements:m,fromElement:{type:"",props:e,children:m,key:null},propsCompareFn:te};return t.stateNode={current:t,hooks:[]},t}function ne(e,t,n){n&&(h=n);let o=H();o.type=ee,o.dom=e,o.props={key:null,children:[t]},o.fromElement={type:"div",props:o.props,children:[t],key:null},d=o,T=o,k(R)}function Ce(e){M.includes(e)||(M.push(e),k(R))}function Fe(e){return e.didChangePos||e.effectTag!==3}function Se(){for(let e of v)Ne(e);if(v=[],d){let e=d;for(;e;)Me(e),e=ie(e,d,Fe,e.effectTag===3);for(let t=N.length-1;t>=0;t--)N[t]();if(N.splice(0),d.type===ee)ve=d;else{let t=d.old,n=d.parent,o=n.child;if(o===t)n.child=d;else for(;o;){if(o.sibling===t){o.sibling=d;break}o=o.sibling}}}d=null;for(let e=C.length-1;e>=0;e--)C[e]();C.splice(0);for(let e=x.length-1;e>=0;e--)x[e]();x.splice(0)}function X(e){return!!e.dom}function xe(e){return typeof e.type!="string"}function Ne(e){let t=e.dom??A(e,e,X)?.dom;t&&t.parentNode&&h.removeChild(t.parentNode,t);let n=e;for(;n;){if(n.stateNode.hooks.length){let o=G(n.stateNode.hooks);o&&C.push(...o.reverse())}n=A(n,e,xe)}e.effectTag=2,e.isOld=!0,e.old=null,e.child=null,e.sibling=null,e.parent=null,e.dom=null,e.stateNode=null,e.childElements=m}function Me(e){if(e.didChangePos){let n=e.dom??A(e,e,X)?.dom;if(n){let o=e.sibling?e.sibling?.dom??A(e.sibling,e,X)?.dom??null:null;N.push(()=>{n.nextSibling!==o&&h.insertBefore(n.parentNode,n,o)})}}if(!(e.dom&&e.parent)||e.effectTag===3)return;let t=e.parent;for(;!t.dom;)t=t.parent;if(e.effectTag===1&&h.addProps(e,e.dom,e.props,e.old?.props||null),e.effectTag===0){let n=t.dom,o=e.dom;h.appendChild(n,o)}}function oe(){if(!M.length)return null;let e=M.shift();if(e.isOld)return oe();let t=H();t.type=e.type,t.parent=e.parent,t.child=e.child,t.sibling=e.sibling,t.old=e,t.isOld=!1,t.dom=e.dom;let n=e.stateNode;return t.stateNode=n,n.current=t,t.effectTag=1,t.didChangePos=!1,t.props=e.props,t.version=e.version+1,t.childElements=e.childElements,t.fromElement=e.fromElement,t.propsCompareFn=e.propsCompareFn,e.old=null,e.isOld=!0,t}function R(e){let t=!1;for(;T&&!t;)T=He(T),t=e()<1;!T&&d&&Se();let n=oe();if(n){d=n,T=d,k(R);return}d&&k(R)}function Re(e){S in e.type&&e.type[S]&&(e.propsCompareFn=e.type[S]);let t,n,o=e.stateNode;z(o.hooks,function(){Ce(o.current)},function(l,c){(t??(t=[])).push(l),c&&(n??(n=[])).push(c)});let r=e.type(e.props);e.childElements=[r],t&&x.push(...t.reverse()),n&&C.push(...n.reverse())}function Ae(e){e.dom||(e.dom=h.createNode(e.type),h.addProps(e,e.dom,e.props,null)),e.childElements=e.fromElement.children??m}function He(e){return typeof e.type=="string"&&Ae(e),typeof e.type=="function"&&Re(e),Ie(e,e.childElements),ie(e,d,Oe)}function Oe(e){return e.effectTag!==3}function _e(){return!0}function ie(e,t,n=_e,o=!1){if(!o&&e.child&&n(e.child))return e.child;let r=o?e:e.child??e;for(;r&&r!==t;){let i=r.sibling;for(;i;){if(n(i))return i;i=i.sibling}r=r.parent}return null}function $(e,t){let n=e;if(n.child)return n.child;for(;n&&n!==t;){let o=n.sibling;if(o)return o;n=n.parent}return null}function A(e,t,n){if(!e)return null;let o=$(e,t);for(;o;){if(n(o))return o;o=$(o,t)}return null}function Ie(e,t){if(!t.length&&e.dom&&e.parent&&e.old&&e.old.child){let u=e.old;v.push(u),e.old=null,e.effectTag=0,e.childElements=m,e.child=null,e.dom=h.createNode(e.type),h.addProps(e,e.dom,e.props,null);return}let n=e.old?.child??null,o=null,r=0,i=new Map,l=[],c=n,E=0;for(;c;){let u=c.fromElement.key??E;i.set(u,{fiber:c,oldListIdx:E}),l.push(c),c=c.sibling,E++}let P=[];for(let u=0;u<t.length;u++){let g=t[u],L=g.key??u,D=i.get(L),a=null;if(D){let{fiber:f,oldListIdx:W}=D;if(i.delete(L),P.push(W),f.type===g.type){if(a=Je(g,e,f),a.didChangePos=u!==W,f.fromElement===g||typeof g.type!="string"&&a.propsCompareFn?.(f.props,g.props)){a.effectTag=3,a.child=f.child;let F=f.child;for(;F;)F.parent=a,F=F.sibling}f.old=null,f.isOld=!0,f.sibling=null,f.parent=null}else v.push(f),a=j(g,e)}else a=j(g,e);a&&(r===0?e.child=a:o.sibling=a,o=a,r++)}i.forEach(u=>{v.push(u.fiber)});let w=Xe(P);if(w.length)for(let u of w)l[u].didChangePos=!0}function Xe(e){if(e.length===0)return[];let t=[e[0]],n=[];for(let o=1;o<e.length;o++){let r=e[o];if(r>t[t.length-1])t.push(r);else{let i=0,l=t.length-1;for(;i<l;){let c=i+l>>>1;t[c]<r?i=c+1:l=c}n.push(t[i]),t[i]=r}}return n}function j(e,t){let n=H();return n.type=e.type,n.parent=t,n.props=e.props,n.fromElement=e,n.effectTag=0,typeof e.type=="string"&&(n.propsCompareFn=te),n}function Je(e,t,n){let o=H();o.type=e.type,o.parent=t,o.old=n,o.dom=n.dom,o.effectTag=1,o.props=e.props,o.version=n.version+1,o.fromElement=e,o.propsCompareFn=n.propsCompareFn;let r=n.stateNode;return r.current=o,o.stateNode=r,o}var re=document.getElementById("root"),le=document.createElement("style");le.textContent=`
     .title {
         color: #535bf2;
     }
@@ -46,83 +40,4 @@ style.textContent = `
     .card__body {
         padding: 0 10px;
     }
-`;
-document.head.appendChild(style);
-const Card = ({ children, title }) => {
-    const [isOpen, setIsOpen] = useState(true);
-    return (jsx("div", { className: "card" },
-        jsx("div", { className: "card__title", onClick: () => setIsOpen((prev) => !prev) }, title),
-        jsx("div", { className: "card__body" }, isOpen && children)));
-};
-const TimerCard = () => {
-    const [timer, setTimer] = useState(0); // ms
-    const [isStopped, setIsStopped] = useState(true);
-    useEffect(() => {
-        if (isStopped) {
-            return;
-        }
-        let timerId = setInterval(() => setTimer((time) => time + 100), 100);
-        return () => {
-            clearInterval(timerId);
-        };
-    }, [isStopped]);
-    const handleTimerToggle = () => {
-        setIsStopped((isStopped) => !isStopped);
-    };
-    return (jsx(Card, { title: "Timer" },
-        jsx("div", { className: "flex" },
-            jsx("p", null,
-                "Timer: ",
-                (timer / 1000).toFixed(1)),
-            jsx("button", { id: "stop", style: "margin-right:10px;", onClick: handleTimerToggle },
-                isStopped ? 'Start timer' : 'Stop timer',
-                " \u23F1"))));
-};
-const counterReducer = (state, action) => {
-    if (action.type === 'decrement') {
-        if (state.count - 1 >= 0) {
-            return { count: state.count - 1 };
-        }
-    }
-    else if (action.type === 'increment') {
-        return { count: state.count + 1 };
-    }
-    return {
-        ...state,
-    };
-};
-const initialCountState = {
-    count: 0,
-};
-const App = () => {
-    const [name, setName] = useState('John Doe');
-    const [age, setAge] = useState(33);
-    const [countState, countDispatch] = useReducer(counterReducer, initialCountState);
-    return (jsx("div", { className: "app", id: "test" },
-        jsx("h1", { className: "title" }, "Mini-React \u269B\uFE0F"),
-        jsx(Card, { title: "Counter" },
-            jsx("p", null,
-                "Count: ",
-                countState.count,
-                " "),
-            jsx("div", { className: "flex" },
-                jsx("button", { style: "margin-right:10px;", onClick: () => countDispatch({ type: 'increment' }) }, "Up \uD83D\uDC46"),
-                jsx("button", { onClick: () => countDispatch({ type: 'decrement' }) }, "Down \uD83D\uDC47"))),
-        jsx(TimerCard, null),
-        jsx(Card, { title: "Inputs" },
-            jsx("div", null,
-                "Name: ",
-                name),
-            jsx("div", null,
-                "Age: ",
-                age),
-            jsx("br", null),
-            jsx("label", { style: "display: block", htmlFor: "name" }, "Your name"),
-            jsx("input", { value: name, style: "padding: 10px;", id: "name", onInput: (e) => setName(e.target.value) }),
-            jsx("br", null),
-            jsx("label", { style: "display: block", htmlFor: "age" }, "Your age"),
-            jsx("input", { value: +age, style: "padding: 10px;", type: "number", id: "age", onInput: (e) => setAge(+e.target.value) }))));
-};
-if (root) {
-    createRoot(root, jsx(App, null));
-}
+`;document.head.appendChild(le);var J=({children:e,title:t})=>{let[n,o]=b(!0);return s("div",{className:"card"},s("div",{className:"card__title",onClick:()=>o(r=>!r)},t),s("div",{className:"card__body"},n&&e))},Pe=()=>{let[e,t]=b(0),[n,o]=b(!0);K(()=>{if(n)return;let i=setInterval(()=>t(l=>l+100),100);return()=>{clearInterval(i)}},[n]);let r=()=>{o(i=>!i)};return s(J,{title:"Timer"},s("div",{className:"flex"},s("p",null,"Timer: ",(e/1e3).toFixed(1)),s("button",{id:"stop",style:"margin-right:10px;",onClick:r},n?"Start timer":"Stop timer"," \u23F1")))},we=(e,t)=>{if(t.type==="decrement"){if(e.count-1>=0)return{count:e.count-1}}else if(t.type==="increment")return{count:e.count+1};return{...e}},Le={count:0},De=()=>{let[e,t]=b("John Doe"),[n,o]=b(33),[r,i]=Z(we,Le);return s("div",{className:"app",id:"test"},s("h1",{className:"title"},"Mini-React \u269B\uFE0F"),s(J,{title:"Counter"},s("p",null,"Count: ",r.count," "),s("div",{className:"flex"},s("button",{style:"margin-right:10px;",onClick:()=>i({type:"increment"})},"Up \u{1F446}"),s("button",{onClick:()=>i({type:"decrement"})},"Down \u{1F447}"))),s(Pe,null),s(J,{title:"Inputs"},s("div",null,"Name: ",e),s("div",null,"Age: ",n),s("br",null),s("label",{style:"display: block",htmlFor:"name"},"Your name"),s("input",{value:e,style:"padding: 10px;",id:"name",onInput:l=>t(l.target.value)}),s("br",null),s("label",{style:"display: block",htmlFor:"age"},"Your age"),s("input",{value:+n,style:"padding: 10px;",type:"number",id:"age",onInput:l=>o(+l.target.value)})))};re&&ne(re,s(De,null));

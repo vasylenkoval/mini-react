@@ -4,6 +4,110 @@ import { useMemo, useState, useEffect } from '../hooks';
 import { jsx, JSXElement } from '../jsx';
 import { memo } from '../memo';
 
+type ListElement = { currIdx: number; oldIdx: number };
+type InsertionAction = { currIdx: number; beforeOldIdx: number };
+
+function computeTransformActions(list: ListElement[]): InsertionAction[] {
+    const n = list.length;
+    const oldIndices = list.map((e) => e.oldIdx);
+
+    // Compute nextOld array: each position's next old element index in the list
+    const nextOld = new Int32Array(n).fill(-1);
+    let lastOldPos = -1;
+    for (let i = n - 1; i >= 0; i--) {
+        nextOld[i] = lastOldPos;
+        if (oldIndices[i] !== -1) {
+            lastOldPos = i;
+        }
+    }
+
+    // Compute LIS lengths and find elements in LIS
+    const lengths = new Uint32Array(n).fill(0);
+    const tails: number[] = [];
+    for (let i = 0; i < n; i++) {
+        const oldIdx = oldIndices[i];
+        if (oldIdx === -1) continue;
+        let low = 0,
+            high = tails.length;
+        while (low < high) {
+            const mid = (low + high) >> 1;
+            if (tails[mid] < oldIdx) {
+                low = mid + 1;
+            } else {
+                high = mid;
+            }
+        }
+        if (low === tails.length) {
+            tails.push(oldIdx);
+        } else {
+            tails[low] = oldIdx;
+        }
+        lengths[i] = low + 1;
+    }
+
+    const lisSet = new Set<number>();
+    let currentLength = tails.length;
+    for (let i = n - 1; i >= 0; i--) {
+        if (currentLength <= 0) break;
+        const oldIdx = oldIndices[i];
+        if (oldIdx === -1) continue;
+        if (lengths[i] === currentLength) {
+            lisSet.add(i);
+            currentLength--;
+        }
+    }
+
+    // Compute nextLIS array
+    const nextLIS = new Int32Array(n).fill(-1);
+    let lastLISPos = -1;
+    for (let i = n - 1; i >= 0; i--) {
+        if (lisSet.has(i)) {
+            lastLISPos = i;
+        }
+        nextLIS[i] = lastLISPos;
+    }
+
+    // Generate actions
+    const actions: InsertionAction[] = [];
+    for (let i = 0; i < n; i++) {
+        const elem = list[i];
+        if (elem.oldIdx === -1) {
+            // New element: insert before nextOld's oldIdx or end
+            const nextPos = nextOld[i];
+            const beforeOldIdx = nextPos !== -1 ? list[nextPos].oldIdx : -1;
+            actions.push({ currIdx: elem.currIdx, beforeOldIdx });
+        } else if (!lisSet.has(i)) {
+            // Existing element not in LIS: insert before nextLIS's oldIdx or end
+            const nextPos = nextLIS[i];
+            const beforeOldIdx = nextPos !== -1 ? list[nextPos].oldIdx : -1;
+            actions.push({ currIdx: elem.currIdx, beforeOldIdx });
+        }
+        // Elements in LIS are skipped
+    }
+
+    return actions;
+}
+
+function prepareInput<T>(first: T[], second: T[]): ListElement[] {
+    const elementToOldIdx = new Map<T, number>();
+    first.forEach((elem, idx) => elementToOldIdx.set(elem, idx));
+    return second.map((elem, currIdx) => ({
+        currIdx,
+        oldIdx: elementToOldIdx.get(elem) ?? -1,
+    }));
+}
+
+function convertOutput<T>(
+    actions: InsertionAction[],
+    first: T[],
+    second: T[]
+): Array<{ element: T; before: T | null }> {
+    return actions.map(({ currIdx, beforeOldIdx }) => ({
+        element: second[currIdx],
+        before: beforeOldIdx === -1 ? null : first[beforeOldIdx],
+    }));
+}
+
 describe('fiber', () => {
     it('should render a simple app', () => {
         /* Arrange */
@@ -372,6 +476,7 @@ describe('fiber', () => {
 
         // Re-shuffle
         newArr = [1, 4, 3, 2, 5];
+        debugger;
         populate(newArr);
         expect(rootElement.innerHTML).toBe(
             `<div id="root"><div id="header">List</div><div id="list">${newArr
@@ -648,5 +753,110 @@ describe('fiber', () => {
         const child1 = children[0];
         const child2 = children[1];
         expect(child1.__fiberRef.parent).toBe(child2.__fiberRef.parent);
+    });
+
+    it('test LDS', () => {
+        function getNotLIS(nums: number[]): number[] {
+            if (nums.length === 0) return [];
+
+            // Compute lisLeft: LIS ending at each index
+            const lisLeft: number[] = new Array(nums.length).fill(1);
+            for (let i = 0; i < nums.length; i++) {
+                for (let j = 0; j < i; j++) {
+                    if (nums[j] < nums[i] && lisLeft[i] < lisLeft[j] + 1) {
+                        lisLeft[i] = lisLeft[j] + 1;
+                    }
+                }
+            }
+
+            // Compute lisRight: LIS starting at each index
+            const lisRight: number[] = new Array(nums.length).fill(1);
+            for (let i = nums.length - 1; i >= 0; i--) {
+                for (let j = i + 1; j < nums.length; j++) {
+                    if (nums[i] < nums[j] && lisRight[i] < lisRight[j] + 1) {
+                        lisRight[i] = lisRight[j] + 1;
+                    }
+                }
+            }
+
+            const maxLIS = Math.max(...lisLeft);
+            const notLIS: number[] = [];
+
+            for (let i = 0; i < nums.length; i++) {
+                if (lisLeft[i] + lisRight[i] - 1 < maxLIS) {
+                    notLIS.push(nums[i]);
+                }
+            }
+
+            return notLIS;
+        }
+
+        // expect(getNotLIS([1, 7, 2, 8, 3, 11, 9, 10])).toEqual([7, 8, 11]);
+        expect(getNotLIS([5, 4, 3, 2, 1])).toEqual([5, 4, 3, 2, 1]);
+        expect(getNotLIS([4, 1, 2, 3, 0])).toEqual([4, 0]);
+        // expect(getNotLIS([1, 3, 2, 4, 5])).toEqual([3, 2]);
+    });
+
+    it('test compute insertions 1', () => {
+        // Example usage:
+        const first = ['a', 'b', 'c'];
+        const second = ['b', 'd', 'c', 'a'];
+
+        const list = prepareInput(first, second);
+        const actions = computeTransformActions(list);
+        const formattedActions = convertOutput(actions, first, second);
+
+        expect(formattedActions).toEqual([
+            { element: 'd', before: 'c' },
+            { element: 'a', before: null },
+        ]);
+    });
+
+    it('test compute insertions 2', () => {
+        // Example usage:
+        const first = ['a', 'b', 'c'];
+        const second = ['b', 'c', 'a'];
+
+        const list = prepareInput(first, second);
+        const actions = computeTransformActions(list);
+        const formattedActions = convertOutput(actions, first, second);
+
+        expect(formattedActions).toEqual([{ element: 'a', before: null }]);
+    });
+
+    it('test compute insertions 3', () => {
+        // Example usage:
+        const first = ['a', 'b', 'c'];
+        const second = ['b', 'a', 'c', 'd'];
+
+        const list = prepareInput(first, second);
+        const actions = computeTransformActions(list);
+        const formattedActions = convertOutput(actions, first, second);
+
+        expect(formattedActions).toEqual([
+            { element: 'b', before: 'a' },
+            { element: 'd', before: null },
+        ]);
+    });
+
+    it('test compute insertions 4', () => {
+        // Example usage:
+        const first = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+        const second = ['g', 'b', 'c', 'f', 'a'];
+
+        const list = prepareInput(first, second);
+        const actions = computeTransformActions(list);
+        const formattedActions = convertOutput(actions, first, second);
+
+        expect(formattedActions).toEqual([
+            {
+                element: 'g',
+                before: 'b',
+            },
+            {
+                element: 'a',
+                before: null,
+            },
+        ]);
     });
 });

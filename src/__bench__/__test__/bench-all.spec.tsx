@@ -270,15 +270,15 @@ describe('bench-all', () => {
             throw new Error('dispatch did not bind');
         }
         dispatchRef.current({ type: 'RUN_LOTS' });
-        dispatchRef.current({ type: 'RUN_LOTS' });
         // dispatchRef.current({ type: 'RUN_LOTS' });
-        dispatchRef.current({ type: 'UPDATE' });
-        dispatchRef.current({ type: 'UPDATE' });
-        dispatchRef.current({ type: 'UPDATE' });
+        // dispatchRef.current({ type: 'RUN_LOTS' });
+        // dispatchRef.current({ type: 'UPDATE' });
+        // dispatchRef.current({ type: 'UPDATE' });
+        // dispatchRef.current({ type: 'UPDATE' });
         dispatchRef.current({ type: 'REMOVE', id: 1 });
         dispatchRef.current({ type: 'REMOVE', id: 2 });
         dispatchRef.current({ type: 'REMOVE', id: 3 });
-        dispatchRef.current({ type: 'CLEAR' });
+        // dispatchRef.current({ type: 'CLEAR' });
         console.timeEnd('bench-1k');
     });
 });
