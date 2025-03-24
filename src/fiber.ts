@@ -620,7 +620,8 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
 
     // If there are no old fibers we can just add all new fibers without placing.
     const canPlace = !!oldFiber;
-    const reusedFibers: { fiber: Fiber; oldListIdx: number }[] = [];
+    const reusedFibers: Fiber[] = [];
+    const reusedFibersOldIndices: number[] = [];
 
     for (let newIdx = 0; newIdx < elements.length; newIdx++) {
         const childElement = elements[newIdx];
@@ -629,15 +630,15 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
         let newFiber: Fiber | null = null;
 
         if (existing) {
+            // Exist in the old list
             const { fiber: oldFiber, oldListIdx } = existing;
             existingOldFibersMap.delete(key);
 
             if (oldFiber.type === childElement.type) {
+                // Reuse fiber
                 newFiber = reuseFiber(childElement, wipFiberParent, oldFiber);
-                reusedFibers.push({ fiber: newFiber, oldListIdx });
-
-                /** Old impl */
-                // newFiber.shouldPlace = oldListIdx !== newIdx;
+                reusedFibers.push(newFiber);
+                reusedFibersOldIndices.push(oldListIdx);
 
                 const shouldSkip =
                     oldFiber.fromElement === childElement ||
@@ -661,16 +662,11 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
             } else {
                 // Type mismatch - delete old, create new
                 deletions.push(oldFiber);
-                newFiber = addNewFiber(childElement, wipFiberParent);
-
-                /** New impl */
-                newFiber.shouldPlace = canPlace;
+                newFiber = addNewFiber(childElement, wipFiberParent, canPlace);
             }
         } else {
-            // New fiber
-            newFiber = addNewFiber(childElement, wipFiberParent);
-            /** New impl */
-            newFiber.shouldPlace = canPlace;
+            // Completely new fiber
+            newFiber = addNewFiber(childElement, wipFiberParent, canPlace);
         }
 
         if (newFiber) {
@@ -689,20 +685,20 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
     }
 
     // Derive what old fibers need to be placed.
-    const oldFiberIndices = reusedFibers.map((item) => item.oldListIdx);
-    const newFiberIndicesToPlace = findOldIndicesNotInLIS(oldFiberIndices);
+    const newFiberIndicesToPlace = findOldIndicesNotInLIS(reusedFibersOldIndices);
     for (const idxToPlace of newFiberIndicesToPlace) {
-        reusedFibers[idxToPlace].fiber.shouldPlace = true;
+        reusedFibers[idxToPlace].shouldPlace = true;
     }
 }
 
-function addNewFiber(element: JSXElement, parent: Fiber): Fiber {
+function addNewFiber(element: JSXElement, parent: Fiber, shouldPlace: boolean): Fiber {
     const newFiber = getNewFiber();
     newFiber.type = element.type;
     newFiber.parent = parent;
     newFiber.props = element.props;
     newFiber.fromElement = element;
     newFiber.effectTag = EffectTag.add;
+    newFiber.shouldPlace = shouldPlace;
     if (typeof element.type === 'string') {
         newFiber.propsCompareFn = defaultShallowEqual;
     }

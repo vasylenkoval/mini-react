@@ -4,110 +4,6 @@ import { useMemo, useState, useEffect } from '../hooks';
 import { jsx, JSXElement } from '../jsx';
 import { memo } from '../memo';
 
-type ListElement = { currIdx: number; oldIdx: number };
-type InsertionAction = { currIdx: number; beforeOldIdx: number };
-
-function computeTransformActions(list: ListElement[]): InsertionAction[] {
-    const n = list.length;
-    const oldIndices = list.map((e) => e.oldIdx);
-
-    // Compute nextOld array: each position's next old element index in the list
-    const nextOld = new Int32Array(n).fill(-1);
-    let lastOldPos = -1;
-    for (let i = n - 1; i >= 0; i--) {
-        nextOld[i] = lastOldPos;
-        if (oldIndices[i] !== -1) {
-            lastOldPos = i;
-        }
-    }
-
-    // Compute LIS lengths and find elements in LIS
-    const lengths = new Uint32Array(n).fill(0);
-    const tails: number[] = [];
-    for (let i = 0; i < n; i++) {
-        const oldIdx = oldIndices[i];
-        if (oldIdx === -1) continue;
-        let low = 0,
-            high = tails.length;
-        while (low < high) {
-            const mid = (low + high) >> 1;
-            if (tails[mid] < oldIdx) {
-                low = mid + 1;
-            } else {
-                high = mid;
-            }
-        }
-        if (low === tails.length) {
-            tails.push(oldIdx);
-        } else {
-            tails[low] = oldIdx;
-        }
-        lengths[i] = low + 1;
-    }
-
-    const lisSet = new Set<number>();
-    let currentLength = tails.length;
-    for (let i = n - 1; i >= 0; i--) {
-        if (currentLength <= 0) break;
-        const oldIdx = oldIndices[i];
-        if (oldIdx === -1) continue;
-        if (lengths[i] === currentLength) {
-            lisSet.add(i);
-            currentLength--;
-        }
-    }
-
-    // Compute nextLIS array
-    const nextLIS = new Int32Array(n).fill(-1);
-    let lastLISPos = -1;
-    for (let i = n - 1; i >= 0; i--) {
-        if (lisSet.has(i)) {
-            lastLISPos = i;
-        }
-        nextLIS[i] = lastLISPos;
-    }
-
-    // Generate actions
-    const actions: InsertionAction[] = [];
-    for (let i = 0; i < n; i++) {
-        const elem = list[i];
-        if (elem.oldIdx === -1) {
-            // New element: insert before nextOld's oldIdx or end
-            const nextPos = nextOld[i];
-            const beforeOldIdx = nextPos !== -1 ? list[nextPos].oldIdx : -1;
-            actions.push({ currIdx: elem.currIdx, beforeOldIdx });
-        } else if (!lisSet.has(i)) {
-            // Existing element not in LIS: insert before nextLIS's oldIdx or end
-            const nextPos = nextLIS[i];
-            const beforeOldIdx = nextPos !== -1 ? list[nextPos].oldIdx : -1;
-            actions.push({ currIdx: elem.currIdx, beforeOldIdx });
-        }
-        // Elements in LIS are skipped
-    }
-
-    return actions;
-}
-
-function prepareInput<T>(first: T[], second: T[]): ListElement[] {
-    const elementToOldIdx = new Map<T, number>();
-    first.forEach((elem, idx) => elementToOldIdx.set(elem, idx));
-    return second.map((elem, currIdx) => ({
-        currIdx,
-        oldIdx: elementToOldIdx.get(elem) ?? -1,
-    }));
-}
-
-function convertOutput<T>(
-    actions: InsertionAction[],
-    first: T[],
-    second: T[]
-): Array<{ element: T; before: T | null }> {
-    return actions.map(({ currIdx, beforeOldIdx }) => ({
-        element: second[currIdx],
-        before: beforeOldIdx === -1 ? null : first[beforeOldIdx],
-    }));
-}
-
 describe('fiber', () => {
     it('should render a simple app', () => {
         /* Arrange */
@@ -317,71 +213,6 @@ describe('fiber', () => {
         /* Assert */
         expect(childRenders).toEqual(2);
         expect(rootElement.innerHTML).toBe('<div><div>1</div><div>2</div></div>');
-    });
-
-    it('should render 10000 items and then swap', () => {
-        /* Arrange */
-        const rootElement = document.createElement('div');
-
-        const Item = (props: { index: number; key: number }) => {
-            return <div id={`item-${props.index}`}>{props.index}</div>;
-        };
-
-        let populate = (itemsArr: number[]) => {};
-        const App = () => {
-            const [items, setItems] = useState<number[]>([]);
-            populate = (itemsArr: number[]) => setItems(itemsArr);
-
-            return (
-                <div id="root">
-                    <div id="header">List</div>
-                    <div id="list">
-                        {items.map((index) => (
-                            <Item key={index} index={index} />
-                        ))}
-                    </div>
-                </div>
-            );
-        };
-
-        /* Act */
-        createRoot(rootElement, <App />);
-        let itemsArr = Array.from({ length: 10000 }, (_, index) => index);
-        populate(itemsArr);
-
-        /* Assert */
-        expect(rootElement.innerHTML).toBe(
-            `<div id="root"><div id="header">List</div><div id="list">${itemsArr
-                .map((item) => `<div id="item-${item}">${item}</div>`)
-                .join('')}</div></div>`
-        );
-
-        // Swap last and first elements
-        itemsArr = itemsArr.slice();
-        [itemsArr[0], itemsArr[itemsArr.length - 1]] = [itemsArr[itemsArr.length - 1], itemsArr[0]];
-        populate(itemsArr);
-
-        /* Assert */
-        expect(rootElement.innerHTML).toBe(
-            `<div id="root"><div id="header">List</div><div id="list">${itemsArr
-                .map((item) => `<div id="item-${item}">${item}</div>`)
-                .join('')}</div></div>`
-        );
-
-        // completely reverse the list
-        itemsArr = itemsArr.slice().reverse();
-        populate(itemsArr);
-
-        /* Assert */
-        expect(rootElement.innerHTML).toBe(
-            `<div id="root"><div id="header">List</div><div id="list">${itemsArr
-                .map((item) => `<div id="item-${item}">${item}</div>`)
-                .join('')}</div></div>`
-        );
-
-        // remove half of the list
-        itemsArr = itemsArr.filter((_, index) => index % 2 === 0);
-        populate(itemsArr);
     });
 
     it('should delete item from a list', () => {
@@ -783,146 +614,84 @@ describe('fiber', () => {
         expect(child1.__fiberRef.parent).toBe(child2.__fiberRef.parent);
     });
 
-    it('test compute insertions 1', () => {
-        // Example usage:
-        const first = ['a', 'b', 'c'];
-        const second = ['b', 'd', 'c', 'a'];
+    it('should not mark fibers as placed unnecessarily', async () => {
+        const rootElement = document.createElement('div');
 
-        const list = prepareInput(first, second);
-        const actions = computeTransformActions(list);
-        const formattedActions = convertOutput(actions, first, second);
+        const Item = (props: { value: string; key: string }) => {
+            return <div id={`item-${props.value}`}>{props.value}</div>;
+        };
 
-        expect(formattedActions).toEqual([
-            { element: 'd', before: 'c' },
-            { element: 'a', before: null },
-        ]);
-    });
+        const current = {
+            keysArr: Array.from({ length: 10 }, (_, index) => String(index)),
+        };
 
-    it('test compute insertions 2', () => {
-        // Example usage:
-        const first = ['a', 'b', 'c'];
-        const second = ['b', 'c', 'a'];
+        let populate = () => {};
+        const App = () => {
+            const [items, setItems] = useState<string[]>([]);
+            populate = () => setItems(current.keysArr);
 
-        const list = prepareInput(first, second);
-        const actions = computeTransformActions(list);
-        const formattedActions = convertOutput(actions, first, second);
+            return (
+                <div id="root">
+                    <div id="header">List</div>
+                    <div id="list">
+                        {items.map((key) => (
+                            <Item key={key} value={key} />
+                        ))}
+                    </div>
+                </div>
+            );
+        };
 
-        expect(formattedActions).toEqual([{ element: 'a', before: null }]);
-    });
+        createRoot(rootElement, <App />);
 
-    it('test compute insertions 3', () => {
-        // Example usage:
-        const first = ['a', 'b', 'c'];
-        const second = ['b', 'a', 'c', 'd'];
+        const assertInnerHtml = () => {
+            expect(rootElement.innerHTML).toBe(
+                `<div id="root"><div id="header">List</div><div id="list">${current.keysArr
+                    .map((item) => `<div id="item-${item}">${item}</div>`)
+                    .join('')}</div></div>`
+            );
+        };
 
-        const list = prepareInput(first, second);
-        const actions = computeTransformActions(list);
-        const formattedActions = convertOutput(actions, first, second);
-
-        expect(formattedActions).toEqual([
-            { element: 'b', before: 'a' },
-            { element: 'd', before: null },
-        ]);
-    });
-
-    it('test compute insertions 4', () => {
-        // Example usage:
-        const first = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
-        const second = ['g', 'b', 'c', 'f', 'a'];
-
-        const list = prepareInput(first, second);
-        const actions = computeTransformActions(list);
-        const formattedActions = convertOutput(actions, first, second);
-
-        expect(formattedActions).toEqual([
-            {
-                element: 'g',
-                before: 'b',
-            },
-            {
-                element: 'a',
-                before: null,
-            },
-        ]);
-    });
-
-    it('test compute insertions 5', () => {
-        // Example usage:
-        const first = ['a', 'b'];
-        const second = ['a', 'b'];
-
-        const list = prepareInput(first, second);
-        const actions = computeTransformActions(list);
-        const formattedActions = convertOutput(actions, first, second);
-
-        expect(formattedActions).toEqual([]);
-    });
-    it('test compute insertions on 10000 items', () => {
-        // Example usage:
-        const first = Array.from({ length: 100 }, (_, index) => index);
-        const second = Array.from({ length: 500 }, (_, index) => index);
-
-        const list = prepareInput(first, second);
-        const actions = computeTransformActions(list);
-        const formattedActions = convertOutput(actions, first, second);
-
-        expect(formattedActions.length).toBe(10000);
-    });
-
-    it('test compute insertions 6', () => {
-        function computeTransformActions(oldIndices: number[]): number[] {
-            const n = oldIndices.length;
-            const lengths = new Uint32Array(n);
-            const tails: number[] = [];
-
-            // Compute LIS using binary search optimization
-            for (let i = 0; i < n; i++) {
-                const val = oldIndices[i];
-                let low = 0,
-                    high = tails.length;
-
-                // Fast binary search using bitwise operations
-                while (low < high) {
-                    const mid = (low + high) >>> 1;
-                    tails[mid] < val ? (low = mid + 1) : (high = mid);
-                }
-
-                if (low === tails.length) tails.push(val);
-                else tails[low] = val;
-                lengths[i] = low + 1;
+        const assertPlacedFibers = (placedKeys: string[]) => {
+            type ElementWithFiber = Element & { __fiberRef: Fiber };
+            const listDom = rootElement.querySelector('#list')! as ElementWithFiber;
+            const parentFiber = listDom.__fiberRef;
+            const childrenFibers: Fiber[] = [parentFiber.child!];
+            let curr = parentFiber.child!;
+            while (curr.sibling) {
+                childrenFibers.push(curr.sibling!);
+                curr = curr.sibling;
             }
 
-            // Identify elements in LIS (don't need moving)
-            const lisMembers = new Uint8Array(n);
-            let currentLen = tails.length;
-            for (let i = n - 1; i >= 0 && currentLen > 0; i--) {
-                if (lengths[i] === currentLen) {
-                    lisMembers[i] = 1;
-                    currentLen--;
-                }
-            }
+            const placedKeysInFibers = childrenFibers
+                .filter((childFiber) => childFiber.shouldPlace)
+                .map((childFiber) => childFiber.fromElement.key as string);
+            expect(placedKeysInFibers).toEqual(placedKeys);
+        };
 
-            // Collect indexes of elements needing movement
-            const moved: number[] = [];
-            for (let i = 0; i < n; i++) {
-                if (!lisMembers[i]) moved.push(i);
-            }
+        populate();
+        assertInnerHtml();
 
-            return moved;
-        }
+        // Swap last and first elements
+        current.keysArr = current.keysArr.slice();
+        const temp = current.keysArr[0];
+        current.keysArr[0] = current.keysArr[current.keysArr.length - 1];
+        current.keysArr[current.keysArr.length - 1] = temp;
+        populate();
+        assertInnerHtml();
+        assertPlacedFibers([current.keysArr[0], current.keysArr[current.keysArr.length - 1]]);
 
-        // Helper function to convert lists to oldIndices format
-        function prepareInput<T>(first: T[], second: T[]): number[] {
-            const indexMap = new Map<T, number>();
-            first.forEach((v, i) => indexMap.set(v, i));
-            return second.map((v) => indexMap.get(v)!);
-        }
+        // Reverse the list, all fiber are placed except last
+        current.keysArr = current.keysArr.slice().reverse();
+        populate();
+        assertInnerHtml();
+        assertPlacedFibers(current.keysArr.slice(0, current.keysArr.length - 1));
 
-        // Example usage:
-        const first = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
-        const second = ['b', 'd', 'c', 'a', 'e', 'f', 'g'];
-        const oldIndices = prepareInput(first, second); // [1, 3, 2, 0]
-        const movedIndexes = computeTransformActions(oldIndices); // [1, 3]
-        console.log(movedIndexes.map((i) => second[i])); // ['d', 'a']
+        // Remove half of the list
+        current.keysArr = current.keysArr.filter((_, index) => index % 2 === 0);
+        populate();
+        assertInnerHtml();
+        // No fibers should be placed, they are in the same order
+        assertPlacedFibers([]);
     });
 });
