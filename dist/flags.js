@@ -11,8 +11,6 @@
 export const NoFlags = /*   */ 0b0000000000000000000000000000000;
 // Fiber is new.
 export const Mounted = /*   */ 0b0000000000000000000000000000001;
-// Fiber got updated (remove?)
-export const Updated = /*   */ 0b0000000000000000000000000000010;
 // Fiber moved relative to its siblings.
 export const Moved = /*     */ 0b0000000000000000000000000000100;
 // Indicates that this fiber can be appended to the end of its container.
@@ -21,7 +19,6 @@ export const MovedEnd = /*  */ 0b0000000000000000000000000100000;
 export const Skipped = /*   */ 0b0000000000000000000000000001000;
 // Indicates that this fiber is an old version of a new fiber.
 export const Old = /*       */ 0b0000000000000000000000000010000;
-// Terminal placement?
 // HasOld?
 export function renderFlags(flags) {
     if (flags === 0)
@@ -29,8 +26,6 @@ export function renderFlags(flags) {
     const names = [];
     if (flags & Mounted)
         names.push('Mounted');
-    if (flags & Updated)
-        names.push('Updated');
     if (flags & Moved)
         names.push('Moved');
     if (flags & Skipped)

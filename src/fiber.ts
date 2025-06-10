@@ -278,7 +278,8 @@ function commitFiber(fiber: Fiber) {
         // Find closest parent that's not a component.
         const closestChildDom = fiber.dom ?? findNextFiber(fiber, fiber, fiberWithDom)?.dom;
         if (closestChildDom) {
-            AfterCommitCallbacks.push(() => {
+            AfterCommitCallbacks.push(function placeMovedNode() {
+                // Implement moveEnd, remove callbacks. Do what react does here.
                 const closestNextSiblingDom = fiber.sibling
                     ? fiber.sibling?.dom ??
                       findNextFiber(fiber.sibling, fiber, fiberWithDom)?.dom ??
@@ -405,7 +406,7 @@ function processComponentFiber(fiber: Fiber<FC>) {
 function processDomFiber(fiber: Fiber<string>) {
     if (!fiber.dom) {
         fiber.dom = Dom.createNode(fiber.type as string);
-        Dom.addProps(fiber, fiber.dom, fiber.props, null);
+        // Dom.addProps(fiber, fiber.dom, fiber.props, null);
     }
     fiber.children = fiber.from.children ?? EMPTY_ARR;
 }
@@ -427,7 +428,11 @@ function performUnitOfWork(fiber: Fiber): MaybeFiber {
     if (fiber.flags & Mounted) {
         reconcileChildrenOnMount(fiber, fiber.children);
     } else {
-        reconcileChildrenOnUpdate(fiber, fiber.children);
+        if (fiber.children.length === 1) {
+            reconcileSingleChildOnUpdate(fiber, fiber.children[0]);
+        } else {
+            reconcileChildrenOnUpdate(fiber, fiber.children);
+        }
     }
 
     return nextFiberWithFilter(fiber, WipRoot, nonSkipped);
@@ -517,6 +522,22 @@ function reconcileChildrenOnMount(wipFiberParent: Fiber, elements: JSXElement[])
     }
 }
 
+function reconcileSingleChildOnUpdate(wipFiberParent: Fiber, element: JSXElement) {
+    const oldFiber = wipFiberParent?.old?.child;
+
+    if (!oldFiber || oldFiber.from.key !== element.key) {
+        wipFiberParent.child = createFiber(element, wipFiberParent);
+    } else if (oldFiber) {
+        wipFiberParent.child = reuseFiber(element, wipFiberParent, oldFiber);
+        // Delete the rest
+        let nextSibling = oldFiber.sibling;
+        while (nextSibling) {
+            Deletions.push(nextSibling);
+            nextSibling = nextSibling.sibling;
+        }
+    }
+}
+
 function reconcileChildrenOnUpdate(wipFiberParent: Fiber, elements: JSXElement[]) {
     // If fiber is a dom fiber and was previously committed and currently has no child elements
     // but previous fiber had elements we can bail out of doing a full diff, instead just recreate
@@ -537,7 +558,7 @@ function reconcileChildrenOnUpdate(wipFiberParent: Fiber, elements: JSXElement[]
         wipFiberParent.child = null;
         wipFiberParent.dom = Dom.createNode(wipFiberParent.type as string);
         // Move to commit
-        Dom.addProps(wipFiberParent, wipFiberParent.dom, wipFiberParent.props, null);
+        // Dom.addProps(wipFiberParent, wipFiberParent.dom, wipFiberParent.props, null);
 
         return;
     }
