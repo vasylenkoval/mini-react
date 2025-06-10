@@ -3,29 +3,7 @@ import dom from './dom.js';
 import { Hooks, collectEffectCleanups, startHooks, finishHooks } from './hooks.js';
 import { schedule } from './scheduler.js';
 import { EMPTY_ARR } from './constants.js';
-import { Mounted, Moved, Old, Skipped, Updated } from './flags.js';
-
-/**
- * Effect tags used to determine what to do with the fiber after a render.
- */
-enum EffectTag {
-    /**
-     * Add to the DOM.
-     */
-    add,
-    /**
-     * Update in the DOM.
-     */
-    update,
-    /**
-     * Delete this node from the DOM.
-     */
-    delete,
-    /**
-     * Skip the node update.
-     */
-    skip,
-}
+import { Mounted, Moved, MovedEnd, NoFlags, Old, Skipped, renderFlags } from './flags.js';
 
 const ROOT = 'root' as const;
 
@@ -51,10 +29,6 @@ export interface Fiber<T extends string | FC = string | FC> {
      */
     old: Fiber | null;
     /**
-     * When TRUE indicates that the fiber is an old alternate of some other fiber.
-     */
-    // isOld: boolean;
-    /**
      * The dom node of the fiber. Only set for DOM (non-component) fibers.
      */
     dom: Node | null;
@@ -71,19 +45,10 @@ export interface Fiber<T extends string | FC = string | FC> {
          */
         hooks: Hooks;
     } | null;
-
     /**
-     * Flags.
+     * See `flags.ts`
      */
-    flags: number;
-    /*
-     * The effect tag of the fiber. Used to determine what to do with the fiber after a render.
-     */
-    // effectTag: EffectTag;
-    /**
-     * Indicates whether the current fiber needs to placed. Placement means that the fiber is either new or moved.
-     */
-    // shouldPlace: boolean;
+    flags: 0;
     /**
      * The props of the fiber.
      */
@@ -114,6 +79,7 @@ let Effects: (() => void)[] = [];
 let Cleanups: (() => void)[] = [];
 let AfterCommitCallbacks: AfterCommitFunc[] = [];
 let Dom = dom;
+let DEBUG = false;
 
 function createFiberObj(): Fiber {
     const props = { key: null, children: EMPTY_ARR };
@@ -123,13 +89,10 @@ function createFiberObj(): Fiber {
         sibling: null,
         type: '',
         props,
-        // effectTag: EffectTag.add,
         old: null,
         flags: 0,
-        // isOld: false,
         dom: null,
         stateNode: null,
-        // shouldPlace: false,
         children: EMPTY_ARR,
         from: {
             type: '',
@@ -139,6 +102,17 @@ function createFiberObj(): Fiber {
         },
         v: 0,
     };
+
+    if (DEBUG) {
+        // Add a non-enumerable debug descriptor
+        Object.defineProperty(fiber, '_flags', {
+            get() {
+                return renderFlags(this.flags);
+            },
+            enumerable: false,
+        });
+    }
+
     fiber.stateNode = {
         current: fiber,
         hooks: [],
@@ -184,9 +158,8 @@ function scheduleComponent(stateNode: Fiber['stateNode']) {
     }
 }
 
-function placedOrNonSkipped(f: Fiber) {
-    // return f.shouldPlace || f.effectTag !== EffectTag.skip;
-    return !!(f.flags & Moved) || !(f.flags & Skipped);
+function movedOrNonSkipped(f: Fiber) {
+    return !!(f.flags & (Moved | MovedEnd)) || !(f.flags & Skipped);
 }
 
 /**
@@ -208,9 +181,8 @@ function commitRoot() {
             nextFiberToCommit = nextFiberWithFilter(
                 nextFiberToCommit,
                 WipRoot,
-                placedOrNonSkipped,
+                movedOrNonSkipped,
                 !!(nextFiberToCommit.flags & Skipped)
-                // nextFiberToCommit.effectTag === EffectTag.skip
             );
         }
 
@@ -302,8 +274,7 @@ function deleteFiber(fiber: Fiber) {
  * @param fiber - Fiber to commit.
  */
 function commitFiber(fiber: Fiber) {
-    // if (fiber.shouldPlace) {
-    if (fiber.flags & Moved) {
+    if (fiber.flags & (Moved | MovedEnd)) {
         // Find closest parent that's not a component.
         const closestChildDom = fiber.dom ?? findNextFiber(fiber, fiber, fiberWithDom)?.dom;
         if (closestChildDom) {
@@ -324,21 +295,12 @@ function commitFiber(fiber: Fiber) {
         }
     }
 
-    // if (!(fiber.dom && fiber.parent) || fiber.effectTag === EffectTag.skip) {
     if (!(fiber.dom && fiber.parent) || fiber.flags & Skipped) {
         return;
     }
 
-    // if (fiber.effectTag === EffectTag.update) {
-    if (fiber.flags & Updated) {
-        Dom.addProps(fiber, fiber.dom, fiber.props, fiber.old?.props || null);
-        return;
-    }
+    Dom.addProps(fiber, fiber.dom, fiber.props, fiber.old?.props || null);
 
-    // Always add props here?
-    // Remove Updated flag, it's implied?
-
-    // if (fiber.effectTag === EffectTag.add) {
     if (fiber.flags & Mounted) {
         // Find closest parent that's not a component.
         let parentWithDom: MaybeFiber = fiber.parent;
@@ -369,11 +331,7 @@ function pickNextComponentToRender(): MaybeFiber {
         return pickNextComponentToRender();
     }
 
-    const newFiber = createFiberObj(); // all flags are 0
-    newFiber.flags |= Updated;
-    // newFiber.effectTag = EffectTag.update;
-    // newFiber.isOld = false;
-    // newFiber.shouldPlace = false;
+    const newFiber = createFiberObj();
     newFiber.type = componentFiber.type;
     newFiber.parent = componentFiber.parent;
     newFiber.child = componentFiber.child;
@@ -466,7 +424,12 @@ function performUnitOfWork(fiber: Fiber): MaybeFiber {
         processComponentFiber(fiber as Fiber<FC>);
     }
 
-    diffChildren(fiber, fiber.children);
+    if (fiber.flags & Mounted) {
+        reconcileChildrenOnMount(fiber, fiber.children);
+    } else {
+        reconcileChildrenOnUpdate(fiber, fiber.children);
+    }
+
     return nextFiberWithFilter(fiber, WipRoot, nonSkipped);
 }
 
@@ -540,7 +503,21 @@ function findNextFiber(
     return null;
 }
 
-function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
+function reconcileChildrenOnMount(wipFiberParent: Fiber, elements: JSXElement[]) {
+    let prevNewFiber: Fiber | null = null;
+    for (let newIdx = 0; newIdx < elements.length; newIdx++) {
+        const element = elements[newIdx];
+        const newFiber = createFiber(element, wipFiberParent);
+        if (newIdx === 0) {
+            wipFiberParent.child = newFiber;
+        } else {
+            prevNewFiber!.sibling = newFiber;
+        }
+        prevNewFiber = newFiber;
+    }
+}
+
+function reconcileChildrenOnUpdate(wipFiberParent: Fiber, elements: JSXElement[]) {
     // If fiber is a dom fiber and was previously committed and currently has no child elements
     // but previous fiber had elements we can bail out of doing a full diff, instead just recreate
     // the current wip fiber.
@@ -555,9 +532,7 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
         Deletions.push(old);
 
         wipFiberParent.old = null;
-        // wipFiberParent.effectTag = EffectTag.add;
         wipFiberParent.flags |= Mounted;
-        wipFiberParent.flags &= ~Updated;
         wipFiberParent.children = EMPTY_ARR;
         wipFiberParent.child = null;
         wipFiberParent.dom = Dom.createNode(wipFiberParent.type as string);
@@ -584,9 +559,6 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
         oldIdx++;
     }
 
-    // If there are no old fibers we can just add all new fibers without placing.
-    // TODO: refactor to be a separate branch. Maybe a separate function?
-    const canPlace = !!oldFiber;
     const reusedFibers: Fiber[] = [];
     const reusedFibersOldIndices: number[] = [];
 
@@ -619,7 +591,6 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
                     // Rewire old child fibers to the new parent
                     // newFiber.effectTag = EffectTag.skip;
                     // TODO: collapse into 1
-                    newFiber.flags &= ~Updated;
                     newFiber.flags |= Skipped;
                     newFiber.child = oldFiber.child;
                     let sibling = oldFiber.child;
@@ -633,11 +604,13 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
             } else {
                 // Type mismatch - delete old, create new
                 Deletions.push(oldFiber);
-                newFiber = createFiber(element, wipFiberParent, canPlace);
+                newFiber = createFiber(element, wipFiberParent);
+                newFiber.flags |= newIdx > oldIdx ? MovedEnd : Moved;
             }
         } else {
             // Completely new fiber
-            newFiber = createFiber(element, wipFiberParent, canPlace);
+            newFiber = createFiber(element, wipFiberParent);
+            newFiber.flags |= newIdx > oldIdx ? MovedEnd : Moved;
         }
 
         if (newFiber) {
@@ -651,31 +624,23 @@ function diffChildren(wipFiberParent: Fiber, elements: JSXElement[]) {
         Deletions.push(entry.fiber);
     });
 
-    if (!canPlace) {
-        return;
-    }
-
-    // Derive what old fibers need to be placed.
-    const indicesToPlace = findNonLISIndices(reusedFibersOldIndices);
-    for (const idxToPlace of indicesToPlace) {
-        // reusedFibers[idxToPlace].shouldPlace = true;
-        reusedFibers[idxToPlace].flags |= Moved;
+    if (reusedFibersOldIndices.length) {
+        // Derive what new fibers need to be moved.
+        const indicesToPlace = findNonLISIndices(reusedFibersOldIndices);
+        for (let i = 0; i < indicesToPlace.length; i++) {
+            reusedFibers[indicesToPlace[i]].flags |= Moved;
+        }
     }
 }
 
-function createFiber(element: JSXElement, parent: Fiber, move: boolean): Fiber {
+function createFiber(element: JSXElement, parent: Fiber): Fiber {
     const newFiber = createFiberObj();
     newFiber.type = element.type;
     newFiber.parent = parent;
     newFiber.props = element.props;
     newFiber.from = element;
     newFiber.flags |= Mounted;
-    if (move) {
-        newFiber.flags |= Moved;
-    }
 
-    // newFiber.effectTag = EffectTag.add;
-    // newFiber.shouldPlace = shouldPlace;
     return newFiber;
 }
 
@@ -685,9 +650,7 @@ function reuseFiber(element: JSXElement, parent: Fiber, oldFiber: Fiber): Fiber 
     newFiber.parent = parent;
     newFiber.old = oldFiber;
     newFiber.dom = oldFiber.dom;
-    // newFiber.effectTag = EffectTag.update;
     oldFiber.flags |= Old;
-    newFiber.flags |= Updated;
     newFiber.props = element.props;
     newFiber.v = oldFiber.v + 1;
     newFiber.from = element;
