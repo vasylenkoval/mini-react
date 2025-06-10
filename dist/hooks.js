@@ -9,33 +9,46 @@ export var HookTypes;
  * State for currently processed hooks. Reset right before the component's render.
  */
 const current = {
+    node: null,
     hooks: [],
-    notifyOnStateChange: () => { },
-    scheduleEffect: () => { },
+    notify: () => { },
 };
 /**
  * Index of currently executing hook within a component.
  * Starts with -1, each hook will increment this value in the beginning.
  */
-let hookIndex = -1;
+let hookIndex = 0;
 /**
  * Starts to record hooks for a component.
  * @param hooks - Reference to the hooks array of the component.
- * @param notifyOnStateChange - Callback for when the state hook setters are called.
- * @param scheduleEffect - Callback for when the effect needs to be scheduled.
+ * @param notify - Callback for when the state hook setters are called.
  */
-export function processHooks(hooks, notifyOnStateChange, scheduleEffect) {
-    // Flush state updates
-    for (const hook of hooks) {
-        if (hook.type === HookTypes.state && hook.pending) {
-            hook.value = hook.pending.value;
-            hook.pending = undefined;
+export function startHooks(hooks, node, notify) {
+    current.hooks = hooks;
+    current.node = node;
+    current.notify = notify;
+    hookIndex = 0;
+}
+export function finishHooks(hooks, effects, cleanups) {
+    // Leaf fibers run their effects first in the order they were inside of the component.
+    // We maintain a single global array of all effects and by the end of the commit phase
+    // we will execute all effects one-by-one starting from the end of that array. Because
+    // we still need want to preserve the call order we need to reverse the effects here
+    // ahead of time.
+    for (let i = hooks.length - 1; i >= 0; i--) {
+        const hook = hooks[i];
+        if (hook.type === HookTypes.effect) {
+            if (hook.effect !== null) {
+                effects.push(hook.effect);
+                hook.effect = null;
+            }
+            if (hook.cleanup !== null && hook.changed) {
+                cleanups.push(hook.cleanup);
+                hook.cleanup = null;
+                hook.changed = false;
+            }
         }
     }
-    current.hooks = hooks;
-    current.notifyOnStateChange = notifyOnStateChange;
-    current.scheduleEffect = scheduleEffect;
-    hookIndex = -1;
 }
 /**
  * Stores state within the component.
@@ -43,24 +56,23 @@ export function processHooks(hooks, notifyOnStateChange, scheduleEffect) {
  * @returns Current value and a setter.
  */
 export function useState(initState) {
-    hookIndex++;
-    const oldHook = current.hooks[hookIndex];
+    const oldHook = current.hooks[hookIndex++];
     if (oldHook) {
-        oldHook.notify = current.notifyOnStateChange;
+        oldHook.node = current.node;
         return [oldHook.value, oldHook.setter];
     }
     const hook = {
         type: HookTypes.state,
-        notify: current.notifyOnStateChange,
+        node: current.node,
         value: typeof initState === 'function' ? initState() : initState,
         setter(value) {
-            let lastValue = hook.pending ? hook.pending.value : hook.value;
+            let prev = hook.value;
             let setterFn = typeof value === 'function' ? value : undefined;
-            let pendingValue = setterFn ? setterFn(lastValue) : value;
-            if (pendingValue === lastValue)
+            let updated = setterFn ? setterFn(prev) : value;
+            if (prev === updated)
                 return;
-            hook.pending = { value: pendingValue };
-            hook.notify();
+            hook.value = updated;
+            current.notify(hook.node);
         },
     };
     current.hooks.push(hook);
@@ -68,37 +80,25 @@ export function useState(initState) {
 }
 /**
  * Helper to collect all effect cleanup functions from the hooks array.
- * @TODO: separate effects and state from a single hooks array?
  * @param hooks - Hooks array to collect effect cleanups from.
  * @param cleanups - Reference to the array to collect the cleanups in.
  */
 export function collectEffectCleanups(hooks) {
-    let cleanupFuncs;
+    let cleanups;
     for (let hook of hooks) {
         if (hook.type === HookTypes.effect && hook.cleanup) {
-            (cleanupFuncs ?? (cleanupFuncs = [])).push(hook.cleanup);
+            (cleanups ?? (cleanups = [])).push(hook.cleanup);
+            hook.cleanup = null;
         }
     }
-    return cleanupFuncs;
+    return cleanups;
 }
-/**
- * Runs the effect and stores the cleanup function returned on the same hook.
- * @param effect - Effect to run.
- * @param hook - Hook to store the cleanup function on.
- */
-function executeEffect(effect, hook) {
+async function executeEffect(effect, hook) {
     const cleanup = effect();
     if (typeof cleanup === 'function') {
         hook.cleanup = cleanup;
     }
 }
-/**
- * Compares if new hook deps are equal to the prev deps.
- * If deps array is missing this function will return false.
- * @param newDeps - new hook deps.
- * @param prevDeps - previous hook deps.
- * @returns True if dependencies are equal.
- */
 function areDepsEqual(newDeps, prevDeps) {
     if (!newDeps || !prevDeps) {
         return false;
@@ -112,12 +112,11 @@ function areDepsEqual(newDeps, prevDeps) {
  * @param deps - Array of dependencies for the effect. Effect will be re-run when these change.
  */
 export function useEffect(effect, deps) {
-    hookIndex++;
-    const scheduleEffect = current.scheduleEffect;
-    const oldHook = current.hooks[hookIndex];
+    const oldHook = current.hooks[hookIndex++];
     if (oldHook) {
         if (!areDepsEqual(deps, oldHook.deps)) {
-            scheduleEffect(() => executeEffect(effect, oldHook), oldHook.cleanup ?? null);
+            oldHook.changed = true;
+            oldHook.effect = () => executeEffect(effect, oldHook);
             oldHook.deps = deps;
         }
         return;
@@ -125,9 +124,11 @@ export function useEffect(effect, deps) {
     const hook = {
         type: HookTypes.effect,
         deps,
+        effect: () => executeEffect(effect, hook),
+        cleanup: null,
+        changed: false,
     };
     current.hooks.push(hook);
-    scheduleEffect(() => executeEffect(effect, hook), null);
 }
 /**
  * Remembers the value returned from the callback passed.
@@ -136,8 +137,7 @@ export function useEffect(effect, deps) {
  * @param deps - Array of dependencies to compare with the previous run.
  */
 export function useMemo(valueFn, deps) {
-    hookIndex++;
-    const oldHook = current.hooks[hookIndex];
+    const oldHook = current.hooks[hookIndex++];
     if (oldHook) {
         if (!areDepsEqual(deps, oldHook.deps)) {
             oldHook.deps = deps;
@@ -158,8 +158,7 @@ export function useMemo(valueFn, deps) {
  * @param init - Initial value to store in the ref.
  */
 export function useRef(initialValue) {
-    hookIndex++;
-    const oldHook = current.hooks[hookIndex];
+    const oldHook = current.hooks[hookIndex++];
     if (oldHook) {
         return oldHook.value;
     }

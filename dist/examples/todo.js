@@ -1,1 +1,110 @@
-var T=[];var A=Symbol("propsCompareFn"),I="TEXT";function U(e,t=[]){for(let o of e){let n=typeof o;if(n==="object"&&o){Array.isArray(o)?U(o,t):t.push(o);continue}(n==="string"||n==="number")&&t.push({type:I,props:{nodeValue:o},children:T,key:null})}return t.length?t:T}function c(e,t,...o){let n=t??{},i=null;return o.length>0&&(i=U(o),n.children=i),{type:e,props:n,children:i,key:n.key!==void 0?n.key:null}}function ie(e){return e===I?document.createTextNode(""):document.createElement(e)}var se="children",re="on",J=e=>e.startsWith(re),V=e=>e!==se&&!J(e),B=e=>e.toLowerCase().substring(2),Y=e=>e==="className"?"class":e,ce=(e,t)=>e!="width"&&e!="height"&&e!="href"&&e!="list"&&e!="form"&&e!="tabIndex"&&e!="download"&&e!="rowSpan"&&e!="colSpan"&&e!="role"&&e!="popover"&&e in t;function ue(e,t,o,n){if(t.nodeType===3){t.nodeValue!==o.nodeValue&&(t.nodeValue=o.nodeValue);return}let i=t;if(n){for(let s in n)if(!(s in o))if(V(s)){let r=Y(s);i.removeAttribute(r)}else J(s)&&i.removeEventListener(B(s),n[s])}for(let s in o){if(n&&o[s]===n[s])continue;let r=o[s];if(V(s)&&typeof r=="string"){let l=Y(s);ce(l,i)?i[l]=r:i.setAttribute(l,r)}else if(J(s)){let l=B(s);n&&n[s]&&i.removeEventListener(l,n[s]),i.addEventListener(l,o[s])}}i.__fiberRef=e}var _=globalThis.Node?.prototype,ae=_?.insertBefore,de=_?.removeChild,pe=_?.appendChild;function fe(e,t){de.call(e,t)}function me(e,t){pe.call(e,t)}function he(e,t){e.replaceWith(t)}function ye(e,t,o){ae.call(e,t,o)}var q={createNode:ie,addProps:ue,removeChild:fe,appendChild:me,replaceWith:he,insertBefore:ye};var k={hooks:[],notifyOnStateChange:()=>{},scheduleEffect:()=>{}},C=-1;function Q(e,t,o){for(let n of e)n.type===0&&n.pending&&(n.value=n.pending.value,n.pending=void 0);k.hooks=e,k.notifyOnStateChange=t,k.scheduleEffect=o,C=-1}function S(e){C++;let t=k.hooks[C];if(t)return t.notify=k.notifyOnStateChange,[t.value,t.setter];let o={type:0,notify:k.notifyOnStateChange,value:typeof e=="function"?e():e,setter(n){let i=o.pending?o.pending.value:o.value,s=typeof n=="function"?n:void 0,r=s?s(i):n;r!==i&&(o.pending={value:r},o.notify())}};return k.hooks.push(o),[o.value,o.setter]}function z(e){let t;for(let o of e)o.type===1&&o.cleanup&&(t??(t=[])).push(o.cleanup);return t}function ge(e){C++;let t=k.hooks[C];if(t)return t.value;let o={type:2,value:{current:e}};return k.hooks.push(o),o.value}function G(e,t,o){let n=ge({dispatch:void 0,initState:o?o(t):t}),[i,s]=S(n.current.initState);if(n.current.dispatch)return[i,n.current.dispatch];function r(l){s(a=>e(a,l))}return n.current.dispatch=r,[i,r]}function N(e){return e(Te)}function Te(){return 100}var $="root",v,w=[],d,ke,x=[],H=[],M=[],O=[],E=q,j=(e,t)=>!1;function X(){let e={key:null,children:T},t={parent:null,child:null,sibling:null,type:"",props:e,effectTag:0,old:null,isOld:!1,dom:null,stateNode:null,shouldPlace:!1,version:0,childElements:T,fromElement:{type:"",props:e,children:T,key:null},propsCompareFn:j};return t.stateNode={current:t,hooks:[]},t}function ee(e,t,o){o&&(E=o);let n=X();n.type=$,n.dom=e,n.props={key:null,children:[t]},n.fromElement={type:"div",props:n.props,children:[t],key:null},d=n,v=n,N(L)}function Ee(e){w.includes(e)||(w.push(e),N(L))}function be(e){return e.shouldPlace||e.effectTag!==3}function Fe(){for(let e of x)Ce(e);if(x=[],d){let e=d;for(;e;)Se(e),e=ne(e,d,be,e.effectTag===3);for(let t=O.length-1;t>=0;t--)O[t]();if(O.splice(0),d.type===$)ke=d;else{let t=d.old,o=d.parent,n=o.child;if(n===t)o.child=d;else for(;n;){if(n.sibling===t){n.sibling=d;break}n=n.sibling}}}d=null;for(let e=M.length-1;e>=0;e--)M[e]();M.splice(0);for(let e=H.length-1;e>=0;e--)H[e]();H.splice(0)}function D(e){return!!e.dom}function ve(e){return typeof e.type!="string"}function Ce(e){let t=e.dom??P(e,e,D)?.dom;t&&t.parentNode&&E.removeChild(t.parentNode,t);let o=e;for(;o;){if(o.stateNode.hooks.length){let n=z(o.stateNode.hooks);n&&M.push(...n.reverse())}o=P(o,e,ve)}e.effectTag=2,e.isOld=!0,e.old=null,e.child=null,e.sibling=null,e.parent=null,e.dom=null,e.stateNode=null,e.childElements=T}function Se(e){if(e.shouldPlace){let o=e.dom??P(e,e,D)?.dom;o&&O.push(()=>{let n=e.sibling?e.sibling?.dom??P(e.sibling,e,D)?.dom??null:null;o.nextSibling!=n&&E.insertBefore(o.parentNode,o,n)})}if(!(e.dom&&e.parent)||e.effectTag===3)return;let t=e.parent;for(;!t.dom;)t=t.parent;if(e.effectTag===1&&E.addProps(e,e.dom,e.props,e.old?.props||null),e.effectTag===0){let o=t.dom,n=e.dom;E.appendChild(o,n)}}function te(){if(!w.length)return null;let e=w.shift();if(e.isOld)return te();let t=X();t.type=e.type,t.parent=e.parent,t.child=e.child,t.sibling=e.sibling,t.old=e,t.isOld=!1,t.dom=e.dom;let o=e.stateNode;return t.stateNode=o,o.current=t,t.effectTag=1,t.shouldPlace=!1,t.props=e.props,t.version=e.version+1,t.childElements=e.childElements,t.fromElement=e.fromElement,t.propsCompareFn=e.propsCompareFn,e.old=null,e.isOld=!0,t}function L(e){let t=!1;for(;v&&!t;)v=Me(v),t=e()<1;!v&&d&&Fe();let o=te();if(o){d=o,v=d,N(L);return}d&&N(L)}function Ne(e){A in e.type&&e.type[A]&&(e.propsCompareFn=e.type[A]);let t,o,n=e.stateNode;Q(n.hooks,function(){Ee(n.current)},function(r,l){(t??(t=[])).push(r),l&&(o??(o=[])).push(l)});let i=e.type(e.props);e.childElements=[i],t&&H.push(...t.reverse()),o&&M.push(...o.reverse())}function xe(e){e.dom||(e.dom=E.createNode(e.type),E.addProps(e,e.dom,e.props,null)),e.childElements=e.fromElement.children??T}function Me(e){return typeof e.type=="string"&&xe(e),typeof e.type=="function"&&Ne(e),He(e,e.childElements),ne(e,d,Re)}function Re(e){return e.effectTag!==3}function Ae(){return!0}function ne(e,t,o=Ae,n=!1){if(!n&&e.child&&o(e.child))return e.child;let i=n?e:e.child??e;for(;i&&i!==t;){let s=i.sibling;for(;s;){if(o(s))return s;s=s.sibling}i=i.parent}return null}function K(e,t){let o=e;if(o.child)return o.child;for(;o&&o!==t;){let n=o.sibling;if(n)return n;o=o.parent}return null}function P(e,t,o){if(!e)return null;let n=K(e,t);for(;n;){if(o(n))return n;n=K(n,t)}return null}function He(e,t){if(!t.length&&e.dom&&e.parent&&e.old&&e.old.child){let p=e.old;x.push(p),e.old=null,e.effectTag=0,e.childElements=T,e.child=null,e.dom=E.createNode(e.type),E.addProps(e,e.dom,e.props,null);return}let o=e.old?.child??null,n=null,i=new Map,s=[],r=o,l=0;for(;r;){let p=r.fromElement.key??l;i.set(p,{fiber:r,oldListIdx:l}),s.push(r),r=r.sibling,l++}let a=!!o,u=[],f=[];for(let p=0;p<t.length;p++){let g=t[p],F=g.key??p,m=i.get(F),h=null;if(m){let{fiber:y,oldListIdx:le}=m;if(i.delete(F),y.type===g.type){if(h=Oe(g,e,y),u.push(h),f.push(le),y.fromElement===g||typeof g.type!="string"&&h.propsCompareFn?.(y.props,g.props)){h.effectTag=3,h.child=y.child;let R=y.child;for(;R;)R.parent=h,R=R.sibling}y.old=null,y.isOld=!0,y.sibling=null,y.parent=null}else x.push(y),h=Z(g,e,a)}else h=Z(g,e,a);h&&(p===0?e.child=h:n.sibling=h,n=h)}if(i.forEach(p=>{x.push(p.fiber)}),!a)return;let b=we(f);for(let p of b)u[p].shouldPlace=!0}function Z(e,t,o){let n=X();return n.type=e.type,n.parent=t,n.props=e.props,n.fromElement=e,n.effectTag=0,n.shouldPlace=o,typeof e.type=="string"&&(n.propsCompareFn=j),n}function Oe(e,t,o){let n=X();n.type=e.type,n.parent=t,n.old=o,n.dom=o.dom,n.effectTag=1,n.props=e.props,n.version=o.version+1,n.fromElement=e,n.propsCompareFn=o.propsCompareFn;let i=o.stateNode;return i.current=n,n.stateNode=i,n}function we(e){let t=e.length,o=new Uint32Array(t),n=[];for(let l=0;l<t;l++){let a=e[l],u=0,f=n.length;for(;u<f;){let b=u+f>>>1;n[b]<a?u=b+1:f=b}u===n.length?n.push(a):n[u]=a,o[l]=u+1}let i=new Uint8Array(t),s=n.length;for(let l=t-1;l>=0&&s>0;l--)o[l]===s&&(i[l]=1,s--);let r=[];for(let l=0;l<t;l++)i[l]||r.push(l);return r}function Le(){return c("div",{className:"App"},c(Ie,null))}var W=0;function Pe({task:e,createTodo:t}){let[o,n]=G((r,l)=>({...r,...l}),{task:""}),i=r=>{console.log(r.target.value),n({[r.target.name]:r.target.value})};return c("form",{className:"NewTodoForm",onSubmit:r=>{r.preventDefault();let l={id:W++,task:o.task,completed:!1};t(l),n({task:""})}},c("label",{htmlFor:"task"},"New todo"),c("input",{value:o.task,onChange:i,id:"task",type:"text",name:"task",placeholder:"New Todo"}),c("button",null,"Add Todo"))}function Xe({key:e,todo:t,remove:o,update:n,toggleComplete:i}){let[s,r]=S(!1),[l,a]=S(t.task),u=m=>{o(m)},f=m=>{console.log(m),r(!s)},b=m=>{m.preventDefault(),n(t.id,l),f()},p=m=>{a(m.target.value)},g=m=>{i(m.target.id)},F;return s?F=c("div",{className:"Todo"},c("form",{className:"Todo-edit-form",onSubmit:b},c("input",{onChange:p,value:l,type:"text"}),c("button",null,"Save"))):(console.log(t.id),F=c("div",{className:"Todo"},c("li",{id:t.id,onClick:g,className:t.completed?"Todo-task completed":"Todo-task"},t.task),c("div",{className:"Todo-buttons"},c("button",{onClick:f},"Edit"),c("button",{onClick:()=>u(t.id)},"DELETE")))),F}function Ie(){let[e,t]=S([{id:W++,task:"task 1",completed:!1},{id:W++,task:"task 2",completed:!0}]),o=l=>{t([...e,l])},n=l=>{t(e.filter(a=>a.id!==l))},i=(l,a)=>{let u=e.map(f=>f.id===l?{...f,task:a}:f);t(u)},s=l=>{let a=e.map(u=>u.id===l?{...u,completed:!u.completed}:u);t(a)},r=e.map(l=>c(Xe,{toggleComplete:s,update:i,remove:n,key:l.id,todo:l}));return c("div",{className:"TodoList"},c("h1",null,"Todo List ",c("span",null,"A simple React Todo List App")),c("ul",null,r),c(Pe,{createTodo:o}))}var oe=document.getElementById("root");oe&&ee(oe,c(Le,null));
+/** @jsx jsx */
+import { createRoot } from '../fiber.js';
+import { jsx } from '../jsx.js';
+import { useState, useReducer } from '../hooks.js';
+// index
+function App() {
+    return (jsx("div", { className: "App" },
+        jsx(TodoList, null)));
+}
+// New Todo Form
+let todoId = 0;
+function NewTodoForm({ task, createTodo }) {
+    const [userInput, setUserInput] = useReducer((state, newState) => ({ ...state, ...newState }), {
+        task: '',
+    });
+    const handleChange = (evt) => {
+        console.log(evt.target.value);
+        setUserInput({ [evt.target.name]: evt.target.value });
+    };
+    const handleSubmit = (evt) => {
+        evt.preventDefault();
+        const newTodo = { id: todoId++, task: userInput.task, completed: false };
+        createTodo(newTodo);
+        setUserInput({ task: '' });
+    };
+    return (jsx("form", { className: "NewTodoForm", onSubmit: handleSubmit },
+        jsx("label", { htmlFor: "task" }, "New todo"),
+        jsx("input", { value: userInput.task, onChange: handleChange, id: "task", type: "text", name: "task", placeholder: "New Todo" }),
+        jsx("button", null, "Add Todo")));
+}
+// TODO
+function Todo({ key, todo, remove, update, toggleComplete, }) {
+    const [isEditing, setIsEditing] = useState(false);
+    const [task, setTask] = useState(todo.task);
+    const handleClick = (id) => {
+        remove(id);
+    };
+    const toggleFrom = (evt) => {
+        console.log(evt);
+        setIsEditing(!isEditing);
+    };
+    const handleUpdate = (evt) => {
+        evt.preventDefault();
+        update(todo.id, task);
+        toggleFrom();
+    };
+    const handleChange = (evt) => {
+        setTask(evt.target.value);
+    };
+    const toggleCompleted = (evt) => {
+        toggleComplete(evt.target.id);
+    };
+    let result;
+    if (isEditing) {
+        result = (jsx("div", { className: "Todo" },
+            jsx("form", { className: "Todo-edit-form", onSubmit: handleUpdate },
+                jsx("input", { onChange: handleChange, value: task, type: "text" }),
+                jsx("button", null, "Save"))));
+    }
+    else {
+        console.log(todo.id);
+        result = (jsx("div", { className: "Todo" },
+            jsx("li", { id: todo.id, onClick: toggleCompleted, className: todo.completed ? 'Todo-task completed' : 'Todo-task' }, todo.task),
+            jsx("div", { className: "Todo-buttons" },
+                jsx("button", { onClick: toggleFrom }, "Edit"),
+                jsx("button", { onClick: () => handleClick(todo.id) }, "DELETE"))));
+    }
+    return result;
+}
+function TodoList() {
+    const [todos, setTodos] = useState([
+        { id: todoId++, task: 'task 1', completed: false },
+        { id: todoId++, task: 'task 2', completed: true },
+    ]);
+    const create = (newTodo) => {
+        setTodos([...todos, newTodo]);
+    };
+    const remove = (id) => {
+        setTodos(todos.filter((todo) => todo.id !== id));
+    };
+    const update = (id, updtedTask) => {
+        const updatedTodos = todos.map((todo) => {
+            if (todo.id === id) {
+                return { ...todo, task: updtedTask };
+            }
+            return todo;
+        });
+        setTodos(updatedTodos);
+    };
+    const toggleComplete = (id) => {
+        const updatedTodos = todos.map((todo) => {
+            if (todo.id === id) {
+                return { ...todo, completed: !todo.completed };
+            }
+            return todo;
+        });
+        setTodos(updatedTodos);
+    };
+    const todosList = todos.map((todo) => (jsx(Todo, { toggleComplete: toggleComplete, update: update, remove: remove, key: todo.id, todo: todo })));
+    return (jsx("div", { className: "TodoList" },
+        jsx("h1", null,
+            "Todo List ",
+            jsx("span", null, "A simple React Todo List App")),
+        jsx("ul", null, todosList),
+        jsx(NewTodoForm, { createTodo: create })));
+}
+const root = document.getElementById('root');
+if (root) {
+    createRoot(root, jsx(App, null));
+}

@@ -1,5 +1,6 @@
 /** @jsx jsx */
 import { Fiber, createRoot } from '../fiber';
+import { Moved } from '../flags';
 import { useMemo, useState, useEffect } from '../hooks';
 import { jsx, JSXElement } from '../jsx';
 import { memo } from '../memo';
@@ -184,7 +185,7 @@ describe('fiber', () => {
             const [, setCount] = useState(0);
             rerenderChild = () => {
                 debugger;
-                setCount((count) => ++count);
+                setCount((count) => count + 1);
             };
             childRenders++;
             return <div>1</div>;
@@ -664,8 +665,8 @@ describe('fiber', () => {
             }
 
             const placedKeysInFibers = childrenFibers
-                .filter((childFiber) => childFiber.shouldPlace)
-                .map((childFiber) => childFiber.fromElement.key as string);
+                .filter((childFiber) => childFiber.flags & Moved)
+                .map((childFiber) => childFiber.from.key as string);
             expect(placedKeysInFibers).toEqual(placedKeys);
         };
 

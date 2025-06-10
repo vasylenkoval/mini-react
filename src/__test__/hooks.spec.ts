@@ -1,4 +1,4 @@
-import { processHooks, useState, useReducer, Hooks } from '../hooks';
+import { startHooks, useState, useReducer, Hooks } from '../hooks';
 
 const emptyFn = () => undefined;
 
@@ -11,7 +11,7 @@ const runHook = <TProps, TResult>(
     const props = options?.props as TProps;
 
     const render = (props?: TProps) => {
-        processHooks(hooks, emptyFn, emptyFn);
+        startHooks(hooks, null, emptyFn);
         return { value: hook(props!), hooks };
     };
 

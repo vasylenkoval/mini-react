@@ -1,4 +1,10 @@
-var m=[];var M=Symbol("propsCompareFn"),X="TEXT";function V(e,t=[]){for(let o of e){let n=typeof o;if(n==="object"&&o){Array.isArray(o)?V(o,t):t.push(o);continue}(n==="string"||n==="number")&&t.push({type:X,props:{nodeValue:o},children:m,key:null})}return t.length?t:m}function c(e,t,...o){let n=t??{},l=null;return o.length>0&&(l=V(o),n.children=l),{type:e,props:n,children:l,key:n.key!==void 0?n.key:null}}function ce(e){return e===X?document.createTextNode(""):document.createElement(e)}var ue="children",de="on",P=e=>e.startsWith(de),B=e=>e!==ue&&!P(e),U=e=>e.toLowerCase().substring(2),Y=e=>e==="className"?"class":e,ae=(e,t)=>e!="width"&&e!="height"&&e!="href"&&e!="list"&&e!="form"&&e!="tabIndex"&&e!="download"&&e!="rowSpan"&&e!="colSpan"&&e!="role"&&e!="popover"&&e in t;function pe(e,t,o,n){if(t.nodeType===3){t.nodeValue!==o.nodeValue&&(t.nodeValue=o.nodeValue);return}let l=t;if(n){for(let r in n)if(!(r in o))if(B(r)){let s=Y(r);l.removeAttribute(s)}else P(r)&&l.removeEventListener(U(r),n[r])}for(let r in o){if(n&&o[r]===n[r])continue;let s=o[r];if(B(r)&&typeof s=="string"){let i=Y(r);ae(i,l)?l[i]=s:l.setAttribute(i,s)}else if(P(r)){let i=U(r);n&&n[r]&&l.removeEventListener(i,n[r]),l.addEventListener(i,o[r])}}l.__fiberRef=e}var w=globalThis.Node?.prototype,fe=w?.insertBefore,me=w?.removeChild,he=w?.appendChild;function ye(e,t){me.call(e,t)}function ge(e,t){he.call(e,t)}function be(e,t){e.replaceWith(t)}function Te(e,t,o){fe.call(e,t,o)}var q={createNode:ce,addProps:pe,removeChild:ye,appendChild:ge,replaceWith:be,insertBefore:Te};var p={hooks:[],notifyOnStateChange:()=>{},scheduleEffect:()=>{}},T=-1;function z(e,t,o){for(let n of e)n.type===0&&n.pending&&(n.value=n.pending.value,n.pending=void 0);p.hooks=e,p.notifyOnStateChange=t,p.scheduleEffect=o,T=-1}function E(e){T++;let t=p.hooks[T];if(t)return t.notify=p.notifyOnStateChange,[t.value,t.setter];let o={type:0,notify:p.notifyOnStateChange,value:typeof e=="function"?e():e,setter(n){let l=o.pending?o.pending.value:o.value,r=typeof n=="function"?n:void 0,s=r?r(l):n;s!==l&&(o.pending={value:s},o.notify())}};return p.hooks.push(o),[o.value,o.setter]}function G(e){let t;for(let o of e)o.type===1&&o.cleanup&&(t??(t=[])).push(o.cleanup);return t}function Q(e,t){let o=e();typeof o=="function"&&(t.cleanup=o)}function Ee(e,t){return!e||!t?!1:e.length===t.length&&(e.length===0||e.every((o,n)=>o===t[n]))}function K(e,t){T++;let o=p.scheduleEffect,n=p.hooks[T];if(n){Ee(t,n.deps)||(o(()=>Q(e,n),n.cleanup??null),n.deps=t);return}let l={type:1,deps:t};p.hooks.push(l),o(()=>Q(e,l),null)}function ke(e){T++;let t=p.hooks[T];if(t)return t.value;let o={type:2,value:{current:e}};return p.hooks.push(o),o.value}function Z(e,t,o){let n=ke({dispatch:void 0,initState:o?o(t):t}),[l,r]=E(n.current.initState);if(n.current.dispatch)return[l,n.current.dispatch];function s(i){r(h=>e(h,i))}return n.current.dispatch=s,[l,s]}function C(e){return e(ve)}function ve(){return 100}var ee="root",v,O=[],u,Fe,S=[],R=[],x=[],A=[],g=q,te=(e,t)=>!1;function I(){let e={key:null,children:m},t={parent:null,child:null,sibling:null,type:"",props:e,effectTag:0,old:null,isOld:!1,dom:null,stateNode:null,shouldPlace:!1,version:0,childElements:m,fromElement:{type:"",props:e,children:m,key:null},propsCompareFn:te};return t.stateNode={current:t,hooks:[]},t}function ne(e,t,o){o&&(g=o);let n=I();n.type=ee,n.dom=e,n.props={key:null,children:[t]},n.fromElement={type:"div",props:n.props,children:[t],key:null},u=n,v=n,C(H)}function Ce(e){O.includes(e)||(O.push(e),C(H))}function Se(e){return e.shouldPlace||e.effectTag!==3}function xe(){for(let e of S)Me(e);if(S=[],u){let e=u;for(;e;)Re(e),e=le(e,u,Se,e.effectTag===3);for(let t=A.length-1;t>=0;t--)A[t]();if(A.splice(0),u.type===ee)Fe=u;else{let t=u.old,o=u.parent,n=o.child;if(n===t)o.child=u;else for(;n;){if(n.sibling===t){n.sibling=u;break}n=n.sibling}}}u=null;for(let e=x.length-1;e>=0;e--)x[e]();x.splice(0);for(let e=R.length-1;e>=0;e--)R[e]();R.splice(0)}function J(e){return!!e.dom}function Ne(e){return typeof e.type!="string"}function Me(e){let t=e.dom??_(e,e,J)?.dom;t&&t.parentNode&&g.removeChild(t.parentNode,t);let o=e;for(;o;){if(o.stateNode.hooks.length){let n=G(o.stateNode.hooks);n&&x.push(...n.reverse())}o=_(o,e,Ne)}e.effectTag=2,e.isOld=!0,e.old=null,e.child=null,e.sibling=null,e.parent=null,e.dom=null,e.stateNode=null,e.childElements=m}function Re(e){if(e.shouldPlace){let o=e.dom??_(e,e,J)?.dom;o&&A.push(()=>{let n=e.sibling?e.sibling?.dom??_(e.sibling,e,J)?.dom??null:null;o.nextSibling!=n&&g.insertBefore(o.parentNode,o,n)})}if(!(e.dom&&e.parent)||e.effectTag===3)return;let t=e.parent;for(;!t.dom;)t=t.parent;if(e.effectTag===1&&g.addProps(e,e.dom,e.props,e.old?.props||null),e.effectTag===0){let o=t.dom,n=e.dom;g.appendChild(o,n)}}function oe(){if(!O.length)return null;let e=O.shift();if(e.isOld)return oe();let t=I();t.type=e.type,t.parent=e.parent,t.child=e.child,t.sibling=e.sibling,t.old=e,t.isOld=!1,t.dom=e.dom;let o=e.stateNode;return t.stateNode=o,o.current=t,t.effectTag=1,t.shouldPlace=!1,t.props=e.props,t.version=e.version+1,t.childElements=e.childElements,t.fromElement=e.fromElement,t.propsCompareFn=e.propsCompareFn,e.old=null,e.isOld=!0,t}function H(e){let t=!1;for(;v&&!t;)v=He(v),t=e()<1;!v&&u&&xe();let o=oe();if(o){u=o,v=u,C(H);return}u&&C(H)}function Ae(e){M in e.type&&e.type[M]&&(e.propsCompareFn=e.type[M]);let t,o,n=e.stateNode;z(n.hooks,function(){Ce(n.current)},function(s,i){(t??(t=[])).push(s),i&&(o??(o=[])).push(i)});let l=e.type(e.props);e.childElements=[l],t&&R.push(...t.reverse()),o&&x.push(...o.reverse())}function Oe(e){e.dom||(e.dom=g.createNode(e.type),g.addProps(e,e.dom,e.props,null)),e.childElements=e.fromElement.children??m}function He(e){return typeof e.type=="string"&&Oe(e),typeof e.type=="function"&&Ae(e),Xe(e,e.childElements),le(e,u,_e)}function _e(e){return e.effectTag!==3}function Ie(){return!0}function le(e,t,o=Ie,n=!1){if(!n&&e.child&&o(e.child))return e.child;let l=n?e:e.child??e;for(;l&&l!==t;){let r=l.sibling;for(;r;){if(o(r))return r;r=r.sibling}l=l.parent}return null}function $(e,t){let o=e;if(o.child)return o.child;for(;o&&o!==t;){let n=o.sibling;if(n)return n;o=o.parent}return null}function _(e,t,o){if(!e)return null;let n=$(e,t);for(;n;){if(o(n))return n;n=$(n,t)}return null}function Xe(e,t){if(!t.length&&e.dom&&e.parent&&e.old&&e.old.child){let d=e.old;S.push(d),e.old=null,e.effectTag=0,e.childElements=m,e.child=null,e.dom=g.createNode(e.type),g.addProps(e,e.dom,e.props,null);return}let o=e.old?.child??null,n=null,l=new Map,r=[],s=o,i=0;for(;s;){let d=s.fromElement.key??i;l.set(d,{fiber:s,oldListIdx:i}),r.push(s),s=s.sibling,i++}let h=!!o,y=[],k=[];for(let d=0;d<t.length;d++){let b=t[d],D=b.key??d,W=l.get(D),a=null;if(W){let{fiber:f,oldListIdx:se}=W;if(l.delete(D),f.type===b.type){if(a=Pe(b,e,f),y.push(a),k.push(se),f.fromElement===b||typeof b.type!="string"&&a.propsCompareFn?.(f.props,b.props)){a.effectTag=3,a.child=f.child;let N=f.child;for(;N;)N.parent=a,N=N.sibling}f.old=null,f.isOld=!0,f.sibling=null,f.parent=null}else S.push(f),a=j(b,e,h)}else a=j(b,e,h);a&&(d===0?e.child=a:n.sibling=a,n=a)}if(l.forEach(d=>{S.push(d.fiber)}),!h)return;let F=we(k);for(let d of F)y[d].shouldPlace=!0}function j(e,t,o){let n=I();return n.type=e.type,n.parent=t,n.props=e.props,n.fromElement=e,n.effectTag=0,n.shouldPlace=o,typeof e.type=="string"&&(n.propsCompareFn=te),n}function Pe(e,t,o){let n=I();n.type=e.type,n.parent=t,n.old=o,n.dom=o.dom,n.effectTag=1,n.props=e.props,n.version=o.version+1,n.fromElement=e,n.propsCompareFn=o.propsCompareFn;let l=o.stateNode;return l.current=n,n.stateNode=l,n}function we(e){let t=e.length,o=new Uint32Array(t),n=[];for(let i=0;i<t;i++){let h=e[i],y=0,k=n.length;for(;y<k;){let F=y+k>>>1;n[F]<h?y=F+1:k=F}y===n.length?n.push(h):n[y]=h,o[i]=y+1}let l=new Uint8Array(t),r=n.length;for(let i=t-1;i>=0&&r>0;i--)o[i]===r&&(l[i]=1,r--);let s=[];for(let i=0;i<t;i++)l[i]||s.push(i);return s}var re=document.getElementById("root"),ie=document.createElement("style");ie.textContent=`
+/** @jsx jsx */
+import { createRoot } from '../fiber.js';
+import { jsx } from '../jsx.js';
+import { useState, useEffect, useReducer } from '../hooks.js';
+const root = document.getElementById('root');
+const style = document.createElement('style');
+style.textContent = `
     .title {
         color: #535bf2;
     }
@@ -40,4 +46,83 @@ var m=[];var M=Symbol("propsCompareFn"),X="TEXT";function V(e,t=[]){for(let o of
     .card__body {
         padding: 0 10px;
     }
-`;document.head.appendChild(ie);var L=({children:e,title:t})=>{let[o,n]=E(!0);return c("div",{className:"card"},c("div",{className:"card__title",onClick:()=>n(l=>!l)},t),c("div",{className:"card__body"},o&&e))},Je=()=>{let[e,t]=E(0),[o,n]=E(!0);K(()=>{if(o)return;let r=setInterval(()=>t(s=>s+100),100);return()=>{clearInterval(r)}},[o]);let l=()=>{n(r=>!r)};return c(L,{title:"Timer"},c("div",{className:"flex"},c("p",null,"Timer: ",(e/1e3).toFixed(1)),c("button",{id:"stop",style:"margin-right:10px;",onClick:l},o?"Start timer":"Stop timer"," \u23F1")))},Le=(e,t)=>{if(t.type==="decrement"){if(e.count-1>=0)return{count:e.count-1}}else if(t.type==="increment")return{count:e.count+1};return{...e}},De={count:0},We=()=>{let[e,t]=E("John Doe"),[o,n]=E(33),[l,r]=Z(Le,De);return c("div",{className:"app",id:"test"},c("h1",{className:"title"},"Mini-React \u269B\uFE0F"),c(L,{title:"Counter"},c("p",null,"Count: ",l.count," "),c("div",{className:"flex"},c("button",{style:"margin-right:10px;",onClick:()=>r({type:"increment"})},"Up \u{1F446}"),c("button",{onClick:()=>r({type:"decrement"})},"Down \u{1F447}"))),c(Je,null),c(L,{title:"Inputs"},c("div",null,"Name: ",e),c("div",null,"Age: ",o),c("br",null),c("label",{style:"display: block",htmlFor:"name"},"Your name"),c("input",{value:e,style:"padding: 10px;",id:"name",onInput:s=>t(s.target.value)}),c("br",null),c("label",{style:"display: block",htmlFor:"age"},"Your age"),c("input",{value:+o,style:"padding: 10px;",type:"number",id:"age",onInput:s=>n(+s.target.value)})))};re&&ne(re,c(We,null));
+`;
+document.head.appendChild(style);
+const Card = ({ children, title }) => {
+    const [isOpen, setIsOpen] = useState(true);
+    return (jsx("div", { className: "card" },
+        jsx("div", { className: "card__title", onClick: () => setIsOpen((prev) => !prev) }, title),
+        jsx("div", { className: "card__body" }, isOpen && children)));
+};
+const TimerCard = () => {
+    const [timer, setTimer] = useState(0); // ms
+    const [isStopped, setIsStopped] = useState(true);
+    useEffect(() => {
+        if (isStopped) {
+            return;
+        }
+        let timerId = setInterval(() => setTimer((time) => time + 100), 100);
+        return () => {
+            clearInterval(timerId);
+        };
+    }, [isStopped]);
+    const handleTimerToggle = () => {
+        setIsStopped((isStopped) => !isStopped);
+    };
+    return (jsx(Card, { title: "Timer" },
+        jsx("div", { className: "flex" },
+            jsx("p", null,
+                "Timer: ",
+                (timer / 1000).toFixed(1)),
+            jsx("button", { id: "stop", style: "margin-right:10px;", onClick: handleTimerToggle },
+                isStopped ? 'Start timer' : 'Stop timer',
+                " \u23F1"))));
+};
+const counterReducer = (state, action) => {
+    if (action.type === 'decrement') {
+        if (state.count - 1 >= 0) {
+            return { count: state.count - 1 };
+        }
+    }
+    else if (action.type === 'increment') {
+        return { count: state.count + 1 };
+    }
+    return {
+        ...state,
+    };
+};
+const initialCountState = {
+    count: 0,
+};
+const App = () => {
+    const [name, setName] = useState('John Doe');
+    const [age, setAge] = useState(33);
+    const [countState, countDispatch] = useReducer(counterReducer, initialCountState);
+    return (jsx("div", { className: "app", id: "test" },
+        jsx("h1", { className: "title" }, "Mini-React \u269B\uFE0F"),
+        jsx(Card, { title: "Counter" },
+            jsx("p", null,
+                "Count: ",
+                countState.count,
+                " "),
+            jsx("div", { className: "flex" },
+                jsx("button", { style: "margin-right:10px;", onClick: () => countDispatch({ type: 'increment' }) }, "Up \uD83D\uDC46"),
+                jsx("button", { onClick: () => countDispatch({ type: 'decrement' }) }, "Down \uD83D\uDC47"))),
+        jsx(TimerCard, null),
+        jsx(Card, { title: "Inputs" },
+            jsx("div", null,
+                "Name: ",
+                name),
+            jsx("div", null,
+                "Age: ",
+                age),
+            jsx("br", null),
+            jsx("label", { style: "display: block", htmlFor: "name" }, "Your name"),
+            jsx("input", { value: name, style: "padding: 10px;", id: "name", onInput: (e) => setName(e.target.value) }),
+            jsx("br", null),
+            jsx("label", { style: "display: block", htmlFor: "age" }, "Your age"),
+            jsx("input", { value: +age, style: "padding: 10px;", type: "number", id: "age", onInput: (e) => setAge(+e.target.value) }))));
+};
+if (root) {
+    createRoot(root, jsx(App, null));
+}

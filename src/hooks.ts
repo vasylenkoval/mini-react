@@ -7,16 +7,17 @@ export enum HookTypes {
 
 export type StateHook<T> = {
     type: HookTypes.state;
-    notify: () => void;
+    node: unknown;
     value: T;
-    pending?: { value: T };
     setter: (value: T | ((prev: T) => T)) => void;
 };
 
 export type EffectHook = {
     type: HookTypes.effect;
-    cleanup?: () => void;
+    cleanup: (() => void) | null;
+    effect: (() => void) | null;
     deps?: unknown[];
+    changed: boolean;
 };
 
 export type RefHook<T> = {
@@ -38,43 +39,57 @@ export type EffectFunc = () => void | CleanupFunc;
  * State for currently processed hooks. Reset right before the component's render.
  */
 const current: {
+    node: unknown;
     hooks: Hooks;
-    notifyOnStateChange: () => void;
-    scheduleEffect: (effect: () => void, prevCleanup: (() => void) | null) => void;
+    notify: (component: unknown) => void;
 } = {
+    node: null,
     hooks: [],
-    notifyOnStateChange: () => {},
-    scheduleEffect: () => {},
+    notify: () => {},
 };
 
 /**
  * Index of currently executing hook within a component.
  * Starts with -1, each hook will increment this value in the beginning.
  */
-let hookIndex = -1;
+let hookIndex = 0;
 
 /**
  * Starts to record hooks for a component.
  * @param hooks - Reference to the hooks array of the component.
- * @param notifyOnStateChange - Callback for when the state hook setters are called.
- * @param scheduleEffect - Callback for when the effect needs to be scheduled.
+ * @param notify - Callback for when the state hook setters are called.
  */
-export function processHooks(
+export function startHooks(
     hooks: typeof current.hooks,
-    notifyOnStateChange: typeof current.notifyOnStateChange,
-    scheduleEffect: typeof current.scheduleEffect
+    node: typeof current.node,
+    notify: typeof current.notify
 ) {
-    // Flush state updates
-    for (const hook of hooks) {
-        if (hook.type === HookTypes.state && hook.pending) {
-            hook.value = hook.pending.value;
-            hook.pending = undefined;
+    current.hooks = hooks;
+    current.node = node;
+    current.notify = notify;
+    hookIndex = 0;
+}
+
+export function finishHooks(hooks: Hooks, effects: (() => void)[], cleanups: (() => void)[]) {
+    // Leaf fibers run their effects first in the order they were inside of the component.
+    // We maintain a single global array of all effects and by the end of the commit phase
+    // we will execute all effects one-by-one starting from the end of that array. Because
+    // we still need want to preserve the call order we need to reverse the effects here
+    // ahead of time.
+    for (let i = hooks.length - 1; i >= 0; i--) {
+        const hook = hooks[i];
+        if (hook.type === HookTypes.effect) {
+            if (hook.effect !== null) {
+                effects.push(hook.effect);
+                hook.effect = null;
+            }
+            if (hook.cleanup !== null && hook.changed) {
+                cleanups.push(hook.cleanup);
+                hook.cleanup = null;
+                hook.changed = false;
+            }
         }
     }
-    current.hooks = hooks;
-    current.notifyOnStateChange = notifyOnStateChange;
-    current.scheduleEffect = scheduleEffect;
-    hookIndex = -1;
 }
 
 /**
@@ -85,24 +100,23 @@ export function processHooks(
 export function useState<T>(
     initState: T | (() => T)
 ): [StateHook<T>['value'], StateHook<T>['setter']] {
-    hookIndex++;
-    const oldHook = current.hooks[hookIndex] as StateHook<T>;
+    const oldHook = current.hooks[hookIndex++] as StateHook<T>;
     if (oldHook) {
-        oldHook.notify = current.notifyOnStateChange;
+        oldHook.node = current.node;
         return [oldHook.value, oldHook.setter];
     }
 
     const hook: StateHook<T> = {
         type: HookTypes.state,
-        notify: current.notifyOnStateChange,
+        node: current.node,
         value: typeof initState === 'function' ? (initState as () => T)() : initState,
         setter(value) {
-            let lastValue = hook.pending ? hook.pending.value : hook.value;
+            let prev = hook.value;
             let setterFn = typeof value === 'function' ? (value as (prev: T) => T) : undefined;
-            let pendingValue = setterFn ? setterFn(lastValue) : (value as T);
-            if (pendingValue === lastValue) return;
-            hook.pending = { value: pendingValue };
-            hook.notify();
+            let updated = setterFn ? setterFn(prev) : (value as T);
+            if (prev === updated) return;
+            hook.value = updated;
+            current.notify(hook.node);
         },
     };
 
@@ -112,39 +126,27 @@ export function useState<T>(
 
 /**
  * Helper to collect all effect cleanup functions from the hooks array.
- * @TODO: separate effects and state from a single hooks array?
  * @param hooks - Hooks array to collect effect cleanups from.
  * @param cleanups - Reference to the array to collect the cleanups in.
  */
 export function collectEffectCleanups(hooks: Hooks) {
-    let cleanupFuncs: CleanupFunc[] | undefined;
+    let cleanups: CleanupFunc[] | undefined;
     for (let hook of hooks) {
         if (hook.type === HookTypes.effect && hook.cleanup) {
-            (cleanupFuncs ?? (cleanupFuncs = [])).push(hook.cleanup);
+            (cleanups ?? (cleanups = [])).push(hook.cleanup);
+            hook.cleanup = null;
         }
     }
-    return cleanupFuncs;
+    return cleanups;
 }
 
-/**
- * Runs the effect and stores the cleanup function returned on the same hook.
- * @param effect - Effect to run.
- * @param hook - Hook to store the cleanup function on.
- */
-function executeEffect(effect: EffectFunc, hook: EffectHook) {
+async function executeEffect(effect: EffectFunc, hook: EffectHook) {
     const cleanup = effect();
     if (typeof cleanup === 'function') {
         hook.cleanup = cleanup;
     }
 }
 
-/**
- * Compares if new hook deps are equal to the prev deps.
- * If deps array is missing this function will return false.
- * @param newDeps - new hook deps.
- * @param prevDeps - previous hook deps.
- * @returns True if dependencies are equal.
- */
 function areDepsEqual(newDeps?: unknown[], prevDeps?: unknown[]): boolean {
     if (!newDeps || !prevDeps) {
         return false;
@@ -162,12 +164,11 @@ function areDepsEqual(newDeps?: unknown[], prevDeps?: unknown[]): boolean {
  * @param deps - Array of dependencies for the effect. Effect will be re-run when these change.
  */
 export function useEffect(effect: EffectFunc, deps?: unknown[]) {
-    hookIndex++;
-    const scheduleEffect = current.scheduleEffect;
-    const oldHook = current.hooks[hookIndex] as EffectHook;
+    const oldHook = current.hooks[hookIndex++] as EffectHook;
     if (oldHook) {
         if (!areDepsEqual(deps, oldHook.deps)) {
-            scheduleEffect(() => executeEffect(effect, oldHook), oldHook.cleanup ?? null);
+            oldHook.changed = true;
+            oldHook.effect = () => executeEffect(effect, oldHook);
             oldHook.deps = deps;
         }
         return;
@@ -176,10 +177,12 @@ export function useEffect(effect: EffectFunc, deps?: unknown[]) {
     const hook: EffectHook = {
         type: HookTypes.effect,
         deps,
+        effect: () => executeEffect(effect, hook),
+        cleanup: null,
+        changed: false,
     };
 
     current.hooks.push(hook);
-    scheduleEffect(() => executeEffect(effect, hook), null);
 }
 
 /**
@@ -189,8 +192,7 @@ export function useEffect(effect: EffectFunc, deps?: unknown[]) {
  * @param deps - Array of dependencies to compare with the previous run.
  */
 export function useMemo<T>(valueFn: () => T, deps: unknown[]): T {
-    hookIndex++;
-    const oldHook = current.hooks[hookIndex] as MemoHook<T>;
+    const oldHook = current.hooks[hookIndex++] as MemoHook<T>;
     if (oldHook) {
         if (!areDepsEqual(deps, oldHook.deps)) {
             oldHook.deps = deps;
@@ -214,8 +216,7 @@ export function useMemo<T>(valueFn: () => T, deps: unknown[]): T {
  * @param init - Initial value to store in the ref.
  */
 export function useRef<T>(initialValue: T): { current: T } {
-    hookIndex++;
-    const oldHook = current.hooks[hookIndex] as RefHook<T>;
+    const oldHook = current.hooks[hookIndex++] as RefHook<T>;
     if (oldHook) {
         return oldHook.value;
     }

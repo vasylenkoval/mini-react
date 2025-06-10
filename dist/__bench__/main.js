@@ -1,1 +1,152 @@
-var m=[];var k=Symbol("propsCompareFn"),L="TEXT";function B(e,t=[]){for(let n of e){let o=typeof n;if(o==="object"&&n){Array.isArray(n)?B(n,t):t.push(n);continue}(o==="string"||o==="number")&&t.push({type:L,props:{nodeValue:n},children:m,key:null})}return t.length?t:m}function c(e,t,...n){let o=t??{},r=null;return n.length>0&&(r=B(n),o.children=r),{type:e,props:o,children:r,key:o.key!==void 0?o.key:null}}function de(e){return e===L?document.createTextNode(""):document.createElement(e)}var ue="children",pe="on",X=e=>e.startsWith(pe),q=e=>e!==ue&&!X(e),Y=e=>e.toLowerCase().substring(2),z=e=>e==="className"?"class":e,fe=(e,t)=>e!="width"&&e!="height"&&e!="href"&&e!="list"&&e!="form"&&e!="tabIndex"&&e!="download"&&e!="rowSpan"&&e!="colSpan"&&e!="role"&&e!="popover"&&e in t;function me(e,t,n,o){if(t.nodeType===3){t.nodeValue!==n.nodeValue&&(t.nodeValue=n.nodeValue);return}let r=t;if(o){for(let l in o)if(!(l in n))if(q(l)){let i=z(l);r.removeAttribute(i)}else X(l)&&r.removeEventListener(Y(l),o[l])}for(let l in n){if(o&&n[l]===o[l])continue;let i=n[l];if(q(l)&&typeof i=="string"){let s=z(l);fe(s,r)?r[s]=i:r.setAttribute(s,i)}else if(X(l)){let s=Y(l);o&&o[l]&&r.removeEventListener(s,o[l]),r.addEventListener(s,n[l])}}r.__fiberRef=e}var J=globalThis.Node?.prototype,he=J?.insertBefore,ye=J?.removeChild,ge=J?.appendChild;function be(e,t){ye.call(e,t)}function Te(e,t){ge.call(e,t)}function Ee(e,t){e.replaceWith(t)}function ke(e,t,n){he.call(e,t,n)}var $={createNode:de,addProps:me,removeChild:be,appendChild:Te,replaceWith:Ee,insertBefore:ke};var f={hooks:[],notifyOnStateChange:()=>{},scheduleEffect:()=>{}},T=-1;function K(e,t,n){for(let o of e)o.type===0&&o.pending&&(o.value=o.pending.value,o.pending=void 0);f.hooks=e,f.notifyOnStateChange=t,f.scheduleEffect=n,T=-1}function Fe(e){T++;let t=f.hooks[T];if(t)return t.notify=f.notifyOnStateChange,[t.value,t.setter];let n={type:0,notify:f.notifyOnStateChange,value:typeof e=="function"?e():e,setter(o){let r=n.pending?n.pending.value:n.value,l=typeof o=="function"?o:void 0,i=l?l(r):o;i!==r&&(n.pending={value:i},n.notify())}};return f.hooks.push(n),[n.value,n.setter]}function Q(e){let t;for(let n of e)n.type===1&&n.cleanup&&(t??(t=[])).push(n.cleanup);return t}function ve(e,t){return!e||!t?!1:e.length===t.length&&(e.length===0||e.every((n,o)=>n===t[o]))}function I(e,t){T++;let n=f.hooks[T];if(n)return ve(t,n.deps)||(n.deps=t,n.value=e()),n.value;let o={type:3,deps:t,value:e()};return f.hooks.push(o),o.value}function Ce(e){T++;let t=f.hooks[T];if(t)return t.value;let n={type:2,value:{current:e}};return f.hooks.push(n),n.value}function G(e,t,n){let o=Ce({dispatch:void 0,initState:n?n(t):t}),[r,l]=Fe(o.current.initState);if(o.current.dispatch)return[r,o.current.dispatch];function i(s){l(h=>e(h,s))}return o.current.dispatch=i,[r,i]}function S(e){return e(Se)}function Se(){return 100}var te="root",F,A=[],a,xe,x=[],M=[],N=[],w=[],g=$,ne=(e,t)=>!1;function H(){let e={key:null,children:m},t={parent:null,child:null,sibling:null,type:"",props:e,effectTag:0,old:null,isOld:!1,dom:null,stateNode:null,shouldPlace:!1,version:0,childElements:m,fromElement:{type:"",props:e,children:m,key:null},propsCompareFn:ne};return t.stateNode={current:t,hooks:[]},t}function oe(e,t,n){n&&(g=n);let o=H();o.type=te,o.dom=e,o.props={key:null,children:[t]},o.fromElement={type:"div",props:o.props,children:[t],key:null},a=o,F=o,S(O)}function Ne(e){A.includes(e)||(A.push(e),S(O))}function Re(e){return e.shouldPlace||e.effectTag!==3}function Me(){for(let e of x)Ae(e);if(x=[],a){let e=a;for(;e;)Oe(e),e=re(e,a,Re,e.effectTag===3);for(let t=w.length-1;t>=0;t--)w[t]();if(w.splice(0),a.type===te)xe=a;else{let t=a.old,n=a.parent,o=n.child;if(o===t)n.child=a;else for(;o;){if(o.sibling===t){o.sibling=a;break}o=o.sibling}}}a=null;for(let e=N.length-1;e>=0;e--)N[e]();N.splice(0);for(let e=M.length-1;e>=0;e--)M[e]();M.splice(0)}function D(e){return!!e.dom}function we(e){return typeof e.type!="string"}function Ae(e){let t=e.dom??P(e,e,D)?.dom;t&&t.parentNode&&g.removeChild(t.parentNode,t);let n=e;for(;n;){if(n.stateNode.hooks.length){let o=Q(n.stateNode.hooks);o&&N.push(...o.reverse())}n=P(n,e,we)}e.effectTag=2,e.isOld=!0,e.old=null,e.child=null,e.sibling=null,e.parent=null,e.dom=null,e.stateNode=null,e.childElements=m}function Oe(e){if(e.shouldPlace){let n=e.dom??P(e,e,D)?.dom;n&&w.push(()=>{let o=e.sibling?e.sibling?.dom??P(e.sibling,e,D)?.dom??null:null;n.nextSibling!=o&&g.insertBefore(n.parentNode,n,o)})}if(!(e.dom&&e.parent)||e.effectTag===3)return;let t=e.parent;for(;!t.dom;)t=t.parent;if(e.effectTag===1&&g.addProps(e,e.dom,e.props,e.old?.props||null),e.effectTag===0){let n=t.dom,o=e.dom;g.appendChild(n,o)}}function le(){if(!A.length)return null;let e=A.shift();if(e.isOld)return le();let t=H();t.type=e.type,t.parent=e.parent,t.child=e.child,t.sibling=e.sibling,t.old=e,t.isOld=!1,t.dom=e.dom;let n=e.stateNode;return t.stateNode=n,n.current=t,t.effectTag=1,t.shouldPlace=!1,t.props=e.props,t.version=e.version+1,t.childElements=e.childElements,t.fromElement=e.fromElement,t.propsCompareFn=e.propsCompareFn,e.old=null,e.isOld=!0,t}function O(e){let t=!1;for(;F&&!t;)F=Le(F),t=e()<1;!F&&a&&Me();let n=le();if(n){a=n,F=a,S(O);return}a&&S(O)}function Pe(e){k in e.type&&e.type[k]&&(e.propsCompareFn=e.type[k]);let t,n,o=e.stateNode;K(o.hooks,function(){Ne(o.current)},function(i,s){(t??(t=[])).push(i),s&&(n??(n=[])).push(s)});let r=e.type(e.props);e.childElements=[r],t&&M.push(...t.reverse()),n&&N.push(...n.reverse())}function He(e){e.dom||(e.dom=g.createNode(e.type),g.addProps(e,e.dom,e.props,null)),e.childElements=e.fromElement.children??m}function Le(e){return typeof e.type=="string"&&He(e),typeof e.type=="function"&&Pe(e),Ie(e,e.childElements),re(e,a,Xe)}function Xe(e){return e.effectTag!==3}function Je(){return!0}function re(e,t,n=Je,o=!1){if(!o&&e.child&&n(e.child))return e.child;let r=o?e:e.child??e;for(;r&&r!==t;){let l=r.sibling;for(;l;){if(n(l))return l;l=l.sibling}r=r.parent}return null}function Z(e,t){let n=e;if(n.child)return n.child;for(;n&&n!==t;){let o=n.sibling;if(o)return o;n=n.parent}return null}function P(e,t,n){if(!e)return null;let o=Z(e,t);for(;o;){if(n(o))return o;o=Z(o,t)}return null}function Ie(e,t){if(!t.length&&e.dom&&e.parent&&e.old&&e.old.child){let d=e.old;x.push(d),e.old=null,e.effectTag=0,e.childElements=m,e.child=null,e.dom=g.createNode(e.type),g.addProps(e,e.dom,e.props,null);return}let n=e.old?.child??null,o=null,r=new Map,l=[],i=n,s=0;for(;i;){let d=i.fromElement.key??s;r.set(d,{fiber:i,oldListIdx:s}),l.push(i),i=i.sibling,s++}let h=!!n,y=[],E=[];for(let d=0;d<t.length;d++){let b=t[d],V=b.key??d,j=r.get(V),u=null;if(j){let{fiber:p,oldListIdx:ae}=j;if(r.delete(V),p.type===b.type){if(u=De(b,e,p),y.push(u),E.push(ae),p.fromElement===b||typeof b.type!="string"&&u.propsCompareFn?.(p.props,b.props)){u.effectTag=3,u.child=p.child;let R=p.child;for(;R;)R.parent=u,R=R.sibling}p.old=null,p.isOld=!0,p.sibling=null,p.parent=null}else x.push(p),u=ee(b,e,h)}else u=ee(b,e,h);u&&(d===0?e.child=u:o.sibling=u,o=u)}if(r.forEach(d=>{x.push(d.fiber)}),!h)return;let C=_e(E);for(let d of C)y[d].shouldPlace=!0}function ee(e,t,n){let o=H();return o.type=e.type,o.parent=t,o.props=e.props,o.fromElement=e,o.effectTag=0,o.shouldPlace=n,typeof e.type=="string"&&(o.propsCompareFn=ne),o}function De(e,t,n){let o=H();o.type=e.type,o.parent=t,o.old=n,o.dom=n.dom,o.effectTag=1,o.props=e.props,o.version=n.version+1,o.fromElement=e,o.propsCompareFn=n.propsCompareFn;let r=n.stateNode;return r.current=o,o.stateNode=r,o}function _e(e){let t=e.length,n=new Uint32Array(t),o=[];for(let s=0;s<t;s++){let h=e[s],y=0,E=o.length;for(;y<E;){let C=y+E>>>1;o[C]<h?y=C+1:E=C}y===o.length?o.push(h):o[y]=h,n[s]=y+1}let r=new Uint8Array(t),l=o.length;for(let s=t-1;s>=0&&l>0;s--)n[s]===l&&(r[s]=1,l--);let i=[];for(let s=0;s<t;s++)r[s]||i.push(s);return i}function Ue(e,t){if(e===t)return!0;let n=Object.keys(e),o=Object.keys(t);if(n.length!==o.length)return!1;for(let r=0;r<n.length;r++){let l=n[r];if(e[l]!==t[l])return!1}return!0}function _(e,t=Ue){function n(o){return e(o)}return n[k]=t,n}var U=e=>Math.round(Math.random()*1e3)%e,se=["pretty","large","big","small","tall","short","long","handsome","plain","quaint","clean","elegant","easy","angry","crazy","helpful","mushy","odd","unsightly","adorable","important","inexpensive","cheap","expensive","fancy"],ie=["red","yellow","blue","green","pink","brown","purple","brown","white","black","orange"],ce=["table","chair","house","bbq","desk","car","pony","cookie","sandwich","burger","pizza","mouse","keyboard"],We=1,W=e=>{let t=new Array(e);for(let n=0;n<e;n++)t[n]={id:We++,label:`${se[U(se.length)]} ${ie[U(ie.length)]} ${ce[U(ce.length)]}`};return t},Ve={data:[],selected:0},je=(e,t)=>{let{data:n,selected:o}=e;switch(t.type){case"RUN":return{data:W(1e3),selected:0};case"RUN_LOTS":return{data:W(1e4),selected:0};case"ADD":return{data:n.concat(W(1e3)),selected:o};case"UPDATE":{let l=n.slice(0);for(let i=0;i<l.length;i+=10){let s=l[i];l[i]={id:s.id,label:s.label+" !!!"}}return{data:l,selected:o}}case"CLEAR":return{data:[],selected:0};case"SWAP_ROWS":let r=[...n];if(n.length>998){let l=r[1],i=r[998];r[1]=i,r[998]=l}return{data:r,selected:o};case"REMOVE":{let l=n.findIndex(i=>i.id===t.id);return{data:[...n.slice(0,l),...n.slice(l+1)],selected:o}}case"SELECT":return{data:n,selected:t.id};default:return e}},Be=_(({selected:e,item:t,dispatch:n})=>c("tr",{className:e?"danger":""},c("td",{className:"col-md-1"},t.id),c("td",{className:"col-md-4"},c("a",{onClick:I(()=>()=>n({type:"SELECT",id:t.id}),[])},t.label)),c("td",{className:"col-md-1"},c("a",{onClick:I(()=>()=>n({type:"REMOVE",id:t.id}),[])},c("span",{className:"glyphicon glyphicon-remove","aria-hidden":"true"}))),c("td",{className:"col-md-6"})),(e,t)=>e.selected===t.selected&&e.item===t.item),v=({id:e,cb:t,title:n})=>c("div",{className:"col-sm-6 smallpad"},c("button",{type:"button",className:"btn btn-primary btn-block",id:e,onClick:t},n)),qe=_(({dispatch:e})=>c("div",{className:"jumbotron"},c("div",{className:"row"},c("div",{className:"col-md-6"},c("h1",null,"React Hooks keyed")),c("div",{className:"col-md-6"},c("div",{className:"row"},c(v,{id:"run",title:"Create 1,000 rows",cb:()=>e({type:"RUN"})}),c(v,{id:"runlots",title:"Create 10,000 rows",cb:()=>e({type:"RUN_LOTS"})}),c(v,{id:"add",title:"Append 1,000 rows",cb:()=>e({type:"ADD"})}),c(v,{id:"update",title:"Update every 10th row",cb:()=>e({type:"UPDATE"})}),c(v,{id:"clear",title:"Clear",cb:()=>e({type:"CLEAR"})}),c(v,{id:"swaprows",title:"Swap Rows",cb:()=>e({type:"SWAP_ROWS"})}))))),()=>!0),Ye=()=>{let[{data:e,selected:t},n]=G(je,Ve);return c("div",{className:"container"},c(qe,{dispatch:n}),c("table",{className:"table table-hover table-striped test-data"},c("tbody",null,e.map(o=>c(Be,{key:o.id,item:o,selected:t===o.id,dispatch:n})))),c("span",{className:"preloadicon glyphicon glyphicon-remove","aria-hidden":"true"}))};oe(document.getElementById("main"),c(Ye,null));
+/** @jsx jsx */
+import { jsx } from '../jsx.js';
+import { createRoot } from '../fiber.js';
+import { useMemo, useReducer } from '../hooks.js';
+import { memo } from '../memo.js';
+const random = (max) => Math.round(Math.random() * 1000) % max;
+const A = [
+    'pretty',
+    'large',
+    'big',
+    'small',
+    'tall',
+    'short',
+    'long',
+    'handsome',
+    'plain',
+    'quaint',
+    'clean',
+    'elegant',
+    'easy',
+    'angry',
+    'crazy',
+    'helpful',
+    'mushy',
+    'odd',
+    'unsightly',
+    'adorable',
+    'important',
+    'inexpensive',
+    'cheap',
+    'expensive',
+    'fancy',
+];
+const C = [
+    'red',
+    'yellow',
+    'blue',
+    'green',
+    'pink',
+    'brown',
+    'purple',
+    'brown',
+    'white',
+    'black',
+    'orange',
+];
+const N = [
+    'table',
+    'chair',
+    'house',
+    'bbq',
+    'desk',
+    'car',
+    'pony',
+    'cookie',
+    'sandwich',
+    'burger',
+    'pizza',
+    'mouse',
+    'keyboard',
+];
+let nextId = 1;
+// @ts-ignore
+const buildData = (count) => {
+    const data = new Array(count);
+    for (let i = 0; i < count; i++) {
+        data[i] = {
+            id: nextId++,
+            label: `${A[random(A.length)]} ${C[random(C.length)]} ${N[random(N.length)]}`,
+        };
+    }
+    return data;
+};
+const initialState = { data: [], selected: 0 };
+// @ts-ignore
+const listReducer = (state, action) => {
+    const { data, selected } = state;
+    switch (action.type) {
+        case 'RUN':
+            return { data: buildData(1000), selected: 0 };
+        case 'RUN_LOTS':
+            return { data: buildData(10000), selected: 0 };
+        case 'ADD':
+            return { data: data.concat(buildData(1000)), selected };
+        case 'UPDATE': {
+            const newData = data.slice(0);
+            for (let i = 0; i < newData.length; i += 10) {
+                const r = newData[i];
+                newData[i] = { id: r.id, label: r.label + ' !!!' };
+            }
+            return { data: newData, selected };
+        }
+        case 'CLEAR':
+            return { data: [], selected: 0 };
+        case 'SWAP_ROWS':
+            const newdata = [...data];
+            if (data.length > 998) {
+                const d1 = newdata[1];
+                const d998 = newdata[998];
+                newdata[1] = d998;
+                newdata[998] = d1;
+            }
+            return { data: newdata, selected };
+        case 'REMOVE': {
+            const idx = data.findIndex((d) => d.id === action.id);
+            return { data: [...data.slice(0, idx), ...data.slice(idx + 1)], selected };
+        }
+        case 'SELECT':
+            return { data, selected: action.id };
+        default:
+            return state;
+    }
+};
+const Row = memo(({ selected, item, dispatch }) => jsx('tr', { className: selected ? 'danger' : '' }, jsx('td', { className: 'col-md-1' }, item.id), jsx('td', { className: 'col-md-4' }, jsx('a', { onClick: useMemo(() => () => dispatch({ type: 'SELECT', id: item.id }), []) }, item.label)), jsx('td', { className: 'col-md-1' }, jsx('a', { onClick: useMemo(() => () => dispatch({ type: 'REMOVE', id: item.id }), []) }, jsx('span', { className: 'glyphicon glyphicon-remove', 'aria-hidden': 'true' }))), jsx('td', { className: 'col-md-6' })), (prevProps, nextProps) => prevProps.selected === nextProps.selected && prevProps.item === nextProps.item);
+const Button = ({ id, cb, title }) => jsx('div', { className: 'col-sm-6 smallpad' }, jsx('button', { type: 'button', className: 'btn btn-primary btn-block', id: id, onClick: cb }, title));
+const Jumbotron = memo(
+// @ts-ignore
+({ dispatch }) => jsx('div', { className: 'jumbotron' }, jsx('div', { className: 'row' }, jsx('div', { className: 'col-md-6' }, jsx('h1', null, 'React Hooks keyed')), jsx('div', { className: 'col-md-6' }, jsx('div', { className: 'row' }, jsx(Button, {
+    id: 'run',
+    title: 'Create 1,000 rows',
+    cb: () => dispatch({ type: 'RUN' }),
+}), jsx(Button, {
+    id: 'runlots',
+    title: 'Create 10,000 rows',
+    cb: () => dispatch({ type: 'RUN_LOTS' }),
+}), jsx(Button, {
+    id: 'add',
+    title: 'Append 1,000 rows',
+    cb: () => dispatch({ type: 'ADD' }),
+}), jsx(Button, {
+    id: 'update',
+    title: 'Update every 10th row',
+    cb: () => dispatch({ type: 'UPDATE' }),
+}), jsx(Button, {
+    id: 'clear',
+    title: 'Clear',
+    cb: () => dispatch({ type: 'CLEAR' }),
+}), jsx(Button, {
+    id: 'swaprows',
+    title: 'Swap Rows',
+    cb: () => dispatch({ type: 'SWAP_ROWS' }),
+}))))), () => true);
+const Main = () => {
+    const [{ data, selected }, dispatch] = useReducer(listReducer, initialState);
+    return jsx('div', { className: 'container' }, jsx(Jumbotron, { dispatch: dispatch }), jsx('table', { className: 'table table-hover table-striped test-data' }, jsx('tbody', null, data.map((item) => jsx(Row, {
+        key: item.id,
+        item: item,
+        selected: selected === item.id,
+        dispatch: dispatch,
+    })))), jsx('span', { className: 'preloadicon glyphicon glyphicon-remove', 'aria-hidden': 'true' }));
+};
+createRoot(document.getElementById('main'), jsx(Main, null));
