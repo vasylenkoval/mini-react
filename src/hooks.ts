@@ -35,17 +35,23 @@ export type Hooks = (StateHook<any> | MemoHook<any> | RefHook<any> | EffectHook)
 export type CleanupFunc = () => void;
 export type EffectFunc = () => void | CleanupFunc;
 
+export const HooksDispatcher: {
+    onUpdate: (node: unknown) => void;
+} = {
+    onUpdate: function (_: unknown) {},
+};
+
+const EMPTY_HOOKS: Hooks = [];
+
 /**
  * State for currently processed hooks. Reset right before the component's render.
  */
 const current: {
     node: unknown;
     hooks: Hooks;
-    notify: (component: unknown) => void;
 } = {
     node: null,
-    hooks: [],
-    notify: () => {},
+    hooks: EMPTY_HOOKS,
 };
 
 /**
@@ -56,17 +62,12 @@ let hookIndex = 0;
 
 /**
  * Starts to record hooks for a component.
- * @param hooks - Reference to the hooks array of the component.
- * @param notify - Callback for when the state hook setters are called.
+ * @param hooks - Reference to the hooks array of the node.
+ * @param node - Reference to the current node.
  */
-export function startHooks(
-    hooks: typeof current.hooks,
-    node: typeof current.node,
-    notify: typeof current.notify
-) {
+export function startHooks(hooks: typeof current.hooks, node: typeof current.node) {
     current.hooks = hooks;
     current.node = node;
-    current.notify = notify;
     hookIndex = 0;
 }
 
@@ -90,6 +91,9 @@ export function finishHooks(hooks: Hooks, effects: (() => void)[], cleanups: (()
             }
         }
     }
+
+    current.hooks = EMPTY_HOOKS;
+    current.node = null;
 }
 
 /**
@@ -116,7 +120,7 @@ export function useState<T>(
             let updated = setterFn ? setterFn(prev) : (value as T);
             if (prev === updated) return;
             hook.value = updated;
-            current.notify(hook.node);
+            HooksDispatcher.onUpdate(hook.node);
         },
     };
 

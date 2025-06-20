@@ -1,7 +1,5 @@
 import { startHooks, useState, useReducer, Hooks } from '../hooks';
 
-const emptyFn = () => undefined;
-
 // Helper to be able to mount/unmount/rerender a hook
 const runHook = <TProps, TResult>(
     hook: (props: TProps) => TResult,
@@ -11,7 +9,7 @@ const runHook = <TProps, TResult>(
     const props = options?.props as TProps;
 
     const render = (props?: TProps) => {
-        startHooks(hooks, null, emptyFn);
+        startHooks(hooks, null);
         return { value: hook(props!), hooks };
     };
 

@@ -5,13 +5,16 @@ export var HookTypes;
     HookTypes[HookTypes["ref"] = 2] = "ref";
     HookTypes[HookTypes["memo"] = 3] = "memo";
 })(HookTypes || (HookTypes = {}));
+export const HooksDispatcher = {
+    onUpdate: function (_) { },
+};
+const EMPTY_HOOKS = [];
 /**
  * State for currently processed hooks. Reset right before the component's render.
  */
 const current = {
     node: null,
-    hooks: [],
-    notify: () => { },
+    hooks: EMPTY_HOOKS,
 };
 /**
  * Index of currently executing hook within a component.
@@ -20,13 +23,12 @@ const current = {
 let hookIndex = 0;
 /**
  * Starts to record hooks for a component.
- * @param hooks - Reference to the hooks array of the component.
- * @param notify - Callback for when the state hook setters are called.
+ * @param hooks - Reference to the hooks array of the node.
+ * @param node - Reference to the current node.
  */
-export function startHooks(hooks, node, notify) {
+export function startHooks(hooks, node) {
     current.hooks = hooks;
     current.node = node;
-    current.notify = notify;
     hookIndex = 0;
 }
 export function finishHooks(hooks, effects, cleanups) {
@@ -49,6 +51,8 @@ export function finishHooks(hooks, effects, cleanups) {
             }
         }
     }
+    current.hooks = EMPTY_HOOKS;
+    current.node = null;
 }
 /**
  * Stores state within the component.
@@ -72,7 +76,7 @@ export function useState(initState) {
             if (prev === updated)
                 return;
             hook.value = updated;
-            current.notify(hook.node);
+            HooksDispatcher.onUpdate(hook.node);
         },
     };
     current.hooks.push(hook);

@@ -1,6 +1,6 @@
 import { propsCompareFnSymbol } from './jsx.js';
 import dom from './dom.js';
-import { collectEffectCleanups, startHooks, finishHooks } from './hooks.js';
+import { HooksDispatcher, collectEffectCleanups, startHooks, finishHooks, } from './hooks.js';
 import { schedule } from './scheduler.js';
 import { EMPTY_ARR } from './constants.js';
 import { Mounted, Moved, MovedEnd, Old, Skipped, renderFlags } from './flags.js';
@@ -14,7 +14,7 @@ let Effects = [];
 let Cleanups = [];
 let AfterCommitCallbacks = [];
 let Dom = dom;
-let DEBUG = false;
+let DEBUG = true;
 function createFiberObj() {
     const props = { key: null, children: EMPTY_ARR };
     const fiber = {
@@ -80,13 +80,17 @@ export function createRoot(node, element, fakeDom) {
  * Schedules a component to be re-rendered.
  * @param fiber - The component fiber to re-render.
  */
-function scheduleComponent(stateNode) {
+function updateComponent(stateNode) {
     const fiber = stateNode.current;
     if (!RenderQueue.includes(fiber)) {
         RenderQueue.push(fiber);
         schedule(workloop);
     }
 }
+/**
+ * Register a callback for when hooks for a component have an update.
+ */
+HooksDispatcher.onUpdate = updateComponent;
 function movedOrNonSkipped(f) {
     return !!(f.flags & (Moved | MovedEnd)) || !(f.flags & Skipped);
 }
@@ -222,7 +226,7 @@ function pickNextComponentToRender() {
     }
     const componentFiber = RenderQueue.shift();
     // If the component already re-rendered since it was queued we can skip the update.
-    // if (componentFiber.isOld) {
+    // Currently does not do anything since we're not running in async mode.
     if (componentFiber.flags & Old) {
         return pickNextComponentToRender();
     }
@@ -241,8 +245,10 @@ function pickNextComponentToRender() {
     newFiber.stateNode.current = newFiber;
     // Do this after commit?
     componentFiber.old = null;
-    // componentFiber.isOld = true;
     componentFiber.flags |= Old;
+    componentFiber.sibling = null;
+    componentFiber.parent = null;
+    componentFiber.dom = null;
     return newFiber;
 }
 /**
@@ -280,7 +286,7 @@ function processComponentFiber(fiber) {
         fiber.children = [fiber.type(fiber.props)];
         return;
     }
-    startHooks(stateNode.hooks, stateNode, scheduleComponent);
+    startHooks(stateNode.hooks, stateNode);
     fiber.children = [fiber.type(fiber.props)];
     finishHooks(stateNode.hooks, Effects, Cleanups);
 }
@@ -398,27 +404,30 @@ function reconcileSingleChildOnUpdate(wipFiberParent, element) {
             nextSibling = nextSibling.sibling;
         }
     }
+    // Do the memo?
 }
 function reconcileChildrenOnUpdate(wipFiberParent, elements) {
     // If fiber is a dom fiber and was previously committed and currently has no child elements
     // but previous fiber had elements we can bail out of doing a full diff, instead just recreate
     // the current wip fiber.
-    if (!elements.length &&
-        !!wipFiberParent.dom &&
-        !!wipFiberParent.parent &&
-        !!wipFiberParent.old &&
-        !!wipFiberParent.old.child) {
-        const old = wipFiberParent.old;
-        Deletions.push(old);
-        wipFiberParent.old = null;
-        wipFiberParent.flags |= Mounted;
-        wipFiberParent.children = EMPTY_ARR;
-        wipFiberParent.child = null;
-        wipFiberParent.dom = Dom.createNode(wipFiberParent.type);
-        // Move to commit
-        // Dom.addProps(wipFiberParent, wipFiberParent.dom, wipFiberParent.props, null);
-        return;
-    }
+    // if (
+    //     !elements.length &&
+    //     !!wipFiberParent.dom &&
+    //     !!wipFiberParent.parent &&
+    //     !!wipFiberParent.old &&
+    //     !!wipFiberParent.old.child
+    // ) {
+    //     const old = wipFiberParent.old;
+    //     Deletions.push(old);
+    //     wipFiberParent.old = null;
+    //     wipFiberParent.flags |= Mounted;
+    //     wipFiberParent.children = EMPTY_ARR;
+    //     wipFiberParent.child = null;
+    //     wipFiberParent.dom = Dom.createNode(wipFiberParent.type as string);
+    //     // Move to commit
+    //     // Dom.addProps(wipFiberParent, wipFiberParent.dom, wipFiberParent.props, null);
+    //     return;
+    // }
     let oldFiber = wipFiberParent.old?.child ?? null;
     let prevNewFiber = null;
     const existingOldFibersMap = new Map();
@@ -465,8 +474,9 @@ function reconcileChildrenOnUpdate(wipFiberParent, elements) {
                         sibling = sibling.sibling;
                     }
                 }
-                oldFiber.sibling = null;
-                oldFiber.parent = null;
+                // oldFiber.old = null;
+                // oldFiber.sibling = null;
+                // oldFiber.parent = null;
             }
             else {
                 // Type mismatch - delete old, create new
@@ -514,12 +524,16 @@ function reuseFiber(element, parent, oldFiber) {
     newFiber.parent = parent;
     newFiber.old = oldFiber;
     newFiber.dom = oldFiber.dom;
-    oldFiber.flags |= Old;
     newFiber.props = element.props;
     newFiber.v = oldFiber.v + 1;
     newFiber.from = element;
     newFiber.stateNode = oldFiber.stateNode;
     newFiber.stateNode.current = newFiber;
+    oldFiber.flags |= Old;
+    oldFiber.sibling = null;
+    oldFiber.old = null;
+    oldFiber.parent = null;
+    oldFiber.dom = null;
     return newFiber;
 }
 function findNonLISIndices(numbers) {

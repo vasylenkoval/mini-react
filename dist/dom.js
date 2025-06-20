@@ -86,7 +86,7 @@ export function addProps(fiberRef, node, props, prevProps) {
         }
     }
     // Add reference to the current fiber node
-    element['__fiberRef'] = fiberRef;
+    // element['__fiberRef'] = fiberRef;
 }
 const nodeProto = globalThis.Node?.prototype;
 const nodeInsertBefore = nodeProto?.insertBefore;
