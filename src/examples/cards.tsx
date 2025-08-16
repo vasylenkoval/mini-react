@@ -86,7 +86,7 @@ const TimerCard = () => {
         <Card title="Timer">
             <div className="flex">
                 <p>Timer: {(timer / 1000).toFixed(1)}</p>
-                <button style="margin-right:10px;" onClick={handleTimerToggle}>
+                <button id="stop" style="margin-right:10px;" onClick={handleTimerToggle}>
                     {isStopped ? 'Start timer' : 'Stop timer'} ⏱
                 </button>
             </div>
@@ -119,7 +119,7 @@ const App = () => {
     const [countState, countDispatch] = useReducer(counterReducer, initialCountState);
 
     return (
-        <div className="app">
+        <div className="app" id="test">
             <h1 className="title">Mini-React ⚛️</h1>
             <Card title="Counter">
                 <p>Count: {countState.count} </p>
@@ -152,7 +152,7 @@ const App = () => {
                     Your age
                 </label>
                 <input
-                    value={age}
+                    value={+age}
                     style="padding: 10px;"
                     type="number"
                     id="age"

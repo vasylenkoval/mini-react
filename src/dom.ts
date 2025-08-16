@@ -16,15 +16,34 @@ const isEvent = (propName: string) => propName.startsWith(FUNCTION_PREFIX);
 const isProp = (propName: string) => propName !== CHILDREN_PROP && !isEvent(propName);
 const getEventName = (propName: string) => propName.toLowerCase().substring(2);
 const getPropName = (propName: string) => (propName === 'className' ? 'class' : propName);
+const canSetDirect = (propName: string, dom: Record<string, unknown>) => {
+    // TODO(val): snippet from preact, figure out the reason why these
+    // properties have to be set with setAttribute specifically.
+    return (
+        propName != 'width' &&
+        propName != 'height' &&
+        propName != 'href' &&
+        propName != 'list' &&
+        propName != 'form' &&
+        propName != 'tabIndex' &&
+        propName != 'download' &&
+        propName != 'rowSpan' &&
+        propName != 'colSpan' &&
+        propName != 'role' &&
+        propName != 'popover' &&
+        propName in dom
+    );
+};
 
 type EventListener = EventListenerOrEventListenerObject;
 /**
  * Adds given properties to a DOM node. Reconciles new props with previous props if provided.
+ * @param fiberRef - reference to the fiber that holds this dom node
  * @param dom - DOM node to add props to.
  * @param props -  Props to add.
  * @param prevProps - Previously applied props.
  */
-export function addProps(node: Node, props: Props, prevProps?: Props) {
+export function addProps(fiberRef: unknown, node: Node, props: Props, prevProps: Props | null) {
     // https://developer.mozilla.org/en-US/docs/Web/API/Node/nodeType#node.text_node
     if (node.nodeType === 3) {
         if (node.nodeValue !== props.nodeValue) {
@@ -33,7 +52,10 @@ export function addProps(node: Node, props: Props, prevProps?: Props) {
         return;
     }
 
-    const element = node as Element;
+    // @TODO: figure out why buttons and some other elements do not attach id
+    // Also figure out why value is not being reset on inputs
+
+    const element = node as Element & Record<string, unknown>;
     if (prevProps) {
         // Resets props that are completely removed.
         for (let propToReset in prevProps) {
@@ -41,7 +63,8 @@ export function addProps(node: Node, props: Props, prevProps?: Props) {
                 continue;
             }
             if (isProp(propToReset)) {
-                element.removeAttribute(getPropName(propToReset));
+                const propName = getPropName(propToReset);
+                element.removeAttribute(propName);
             } else if (isEvent(propToReset)) {
                 element.removeEventListener(
                     getEventName(propToReset),
@@ -58,7 +81,12 @@ export function addProps(node: Node, props: Props, prevProps?: Props) {
         }
         const value = props[propToAdd];
         if (isProp(propToAdd) && typeof value === 'string') {
-            element.setAttribute(getPropName(propToAdd), value);
+            const propName = getPropName(propToAdd);
+            if (canSetDirect(propName, element)) {
+                element[propName] = value;
+            } else {
+                element.setAttribute(propName, value);
+            }
         } else if (isEvent(propToAdd)) {
             const eventName = getEventName(propToAdd);
             if (prevProps && prevProps[propToAdd]) {
@@ -67,24 +95,32 @@ export function addProps(node: Node, props: Props, prevProps?: Props) {
             element.addEventListener(eventName, props[propToAdd] as EventListener);
         }
     }
+
+    // Add reference to the current fiber node
+    // element['__fiberRef'] = fiberRef;
 }
+
+const nodeProto = globalThis.Node?.prototype;
+const nodeInsertBefore = nodeProto?.insertBefore;
+const nodeRemoveChild = nodeProto?.removeChild;
+const nodeAppendChild = nodeProto?.appendChild;
 
 /**
  * Remove child from a given parent.
  */
 function removeChild(parent: Node, child: Node) {
-    parent.removeChild(child);
+    nodeRemoveChild.call(parent, child);
 }
 
 /**
  * Append child to a given parent.
  */
 function appendChild(parent: Node, child: Node) {
-    parent.appendChild(child);
+    nodeAppendChild.call(parent, child);
 }
 
-function replaceWith(oldNode: ChildNode, newNode: Node) {
-    oldNode.replaceWith(newNode);
+function insertBefore(parent: Node, node: Node, beforeNode: Node | null) {
+    nodeInsertBefore.call(parent, node, beforeNode);
 }
 
-export default { createNode, addProps, removeChild, appendChild, replaceWith };
+export default { createNode, addProps, removeChild, appendChild, insertBefore };

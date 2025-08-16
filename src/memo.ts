@@ -1,55 +1,29 @@
-import { useRef } from './hooks.js';
-import { JSXElement, Props, jsx } from './jsx.js';
+import { JSXElement, Props, propsCompareFnSymbol } from './jsx.js';
 
-type CacheRef = { prevProps: Props; prevJsx: JSXElement } | undefined;
+export function shallowEqual(prevProps: Props, nextProps: Props): boolean {
+    if (prevProps === nextProps) return true;
 
-/**
- * Saves the previous output of a component and only re-renders if the props have changed.
- * @param component - Component to memoize.
- * @param compareFn - Function to compare the previous and next props.
- * @returns Memoized component.
- */
-export function memo<T>(
-    Component: T,
-    compareFn: (prevProps: Props, nextProps: Props) => boolean = defaultCompare
-): T {
-    function Memo(props: Props): JSXElement {
-        const cacheRef = useRef<CacheRef>(undefined);
-        if (!cacheRef.current) {
-            // @ts-ignore
-            cacheRef.current = { prevProps: props, prevJsx: jsx(Component, props) };
-            return cacheRef.current.prevJsx;
-        }
+    const prevKeys = Object.keys(prevProps);
+    const nextKeys = Object.keys(nextProps);
 
-        if (compareFn(cacheRef.current.prevProps, props)) {
-            return cacheRef.current.prevJsx;
-        }
+    if (prevKeys.length !== nextKeys.length) return false;
 
-        cacheRef.current.prevProps = props;
-        // @ts-ignore
-        cacheRef.current.prevJsx = jsx(Component, props);
-        return cacheRef.current.prevJsx;
-    }
-
-    return Memo as T;
-}
-
-/**
- * Default comparison function for memoized components.
- * @param prevProps - Previous props.
- * @param nextProps - Next props.
- * @returns True if the props are the same, false otherwise.
- */
-function defaultCompare(prevProps: Props, nextProps: Props): boolean {
-    if (Object.keys(prevProps).length !== Object.keys(nextProps).length) {
-        return false;
-    }
-
-    for (const key in prevProps) {
-        if (prevProps[key] !== nextProps[key]) {
-            return false;
-        }
+    for (let i = 0; i < prevKeys.length; i++) {
+        const key = prevKeys[i];
+        if (prevProps[key] !== nextProps[key]) return false;
     }
 
     return true;
+}
+
+export function memo<T extends (...args: any[]) => any, TProps extends Props = Parameters<T>[0]>(
+    Component: T,
+    compareFn: (prevProps: TProps, nextProps: TProps) => boolean = shallowEqual
+): T {
+    function Memo(props: Props): JSXElement {
+        // @ts-ignore
+        return Component(props);
+    }
+    Memo[propsCompareFnSymbol] = compareFn;
+    return Memo as unknown as T;
 }

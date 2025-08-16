@@ -1,8 +1,4 @@
 node_modules
 dist/**/__test__
-dist/examples/bench.js
 .DS_Store
-bench.html
-css
-src/examples/bench.tsx
 **/.DS_Store
